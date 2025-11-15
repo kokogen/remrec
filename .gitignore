@@ -1,6 +1,11 @@
-# Python
+# .gitignore
+.venv/
 __pycache__/
 *.pyc
-.env
-
+app.lock
+*.log
+buf/
+grbg/
 .DS_Store
+.idea/
+.vscode/
