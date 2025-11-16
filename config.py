@@ -23,9 +23,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
 # --- Пути в Dropbox ---
-DROPBOX_SOURCE_DIR = "/remarkable_imports"  # Папка, где ищем новые файлы
-DROPBOX_DEST_DIR = "/recognized_texts"    # Папка для сохранения результатов
-DROPBOX_ARCHIVE_DIR = "/processed_archive" # Папка для перемещения обработанных
+DROPBOX_SOURCE_DIR = "/"  # Папка, где ищем новые файлы
+DROPBOX_DEST_DIR = "/txt"    # Папка для сохранения результатов
 
 # --- Локальные пути (внутри контейнера) ---
 LOCAL_BUF_DIR = BASE_DIR / "buf"

@@ -6,3 +6,4 @@ pdf2image
 reportlab
 Pillow
 filelock
+dotenv
