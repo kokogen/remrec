@@ -1,9 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import urllib.parse as urlparse
 import webbrowser
 import requests
 import threading
-import time
 import urllib
 
 class OAuthHandler(BaseHTTPRequestHandler):

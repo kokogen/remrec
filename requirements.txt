@@ -6,4 +6,7 @@ pdf2image
 reportlab
 Pillow
 filelock
+
+# Development tools
+ruff
 dotenv
