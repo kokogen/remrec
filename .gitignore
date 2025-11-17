@@ -1,5 +1,6 @@
 # .gitignore
 .venv/
+.ruff_cache/
 __pycache__/
 *.pyc
 app.lock
