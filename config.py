@@ -23,7 +23,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
 # --- Пути в Dropbox ---
-DROPBOX_SOURCE_DIR = "/"  # Папка, где ищем новые файлы
+DROPBOX_SOURCE_DIR = ""  # Папка, где ищем новые файлы (пустая строка - это корень)
 DROPBOX_DEST_DIR = "/txt"    # Папка для сохранения результатов
 
 # --- Локальные пути (внутри контейнера) ---

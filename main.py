@@ -2,6 +2,7 @@
 import logging
 import os
 import dropbox
+import time # Добавляем импорт
 from filelock import FileLock, Timeout
 
 import config
@@ -34,7 +35,7 @@ def setup_logging():
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 def txt_to_pdf_line_by_line(txt_content, pdf_path):
-    """Сохраняет текстовый контент в PDF, сохраняя переносы строк."""
+
     if not config.FONT_PATH.exists():
         logging.error(f"Font file not found at {config.FONT_PATH}. Cannot create PDF.")
         raise FileNotFoundError(f"Font file not found: {config.FONT_PATH}")
@@ -51,17 +52,12 @@ def txt_to_pdf_line_by_line(txt_content, pdf_path):
     logging.info(f"PDF created at {pdf_path}")
 
 def process_single_file(dbx_client: DropboxClient, file_entry:dropbox.files.FileMetadata):
-    """
-    Полный цикл обработки одного файла: скачивание, распознавание, создание PDF,
-    загрузка результата, архивация оригинала и очистка.
-    """
+
     local_pdf_path = config.LOCAL_BUF_DIR / file_entry.name
     
     try:
-        # 1. Скачать файл
         dbx_client.download_file(file_entry.path_display, local_pdf_path)
 
-        # 2. Конвертировать PDF в изображения и распознать
         logging.info(f"Converting PDF {file_entry.name} to images...")
         pages = convert_from_path(str(local_pdf_path), dpi=200)
         
@@ -74,21 +70,17 @@ def process_single_file(dbx_client: DropboxClient, file_entry:dropbox.files.File
 
         full_text = "\n\n".join(recognized_texts)
 
-        # 3. Создать итоговый PDF из текста
         result_pdf_path = config.LOCAL_BUF_DIR / f"recognized_{file_entry.name}"
         txt_to_pdf_line_by_line(full_text, result_pdf_path)
 
-        # 4. Загрузить результат в Dropbox
         dest_path = f"{config.DROPBOX_DEST_DIR}/{result_pdf_path.name}"
         dbx_client.upload_file(result_pdf_path, dest_path)
 
-        # 4. Удалить оригинал
         dbx_client.delete_file(file_entry.path_display)
         
         logging.info(f"Successfully processed and deleted {file_entry.name}")
 
     finally:
-        # 6. Очистка локальных файлов в любом случае
         logging.info("Cleaning up local files...")
         if os.path.exists(local_pdf_path):
             os.remove(local_pdf_path)
@@ -96,7 +88,7 @@ def process_single_file(dbx_client: DropboxClient, file_entry:dropbox.files.File
             os.remove(result_pdf_path)
 
 def main_workflow():
-    """Основной рабочий процесс приложения."""
+
     logging.info("Starting workflow...")
     
     # Проверка наличия всех необходимых секретов
@@ -108,8 +100,10 @@ def main_workflow():
     dbx = DropboxClient(config.DROPBOX_APP_KEY, config.DROPBOX_APP_SECRET, config.DROPBOX_REFRESH_TOKEN)
     
     # Проверяем/создаем необходимые папки в Dropbox
-    for folder in [config.DROPBOX_SOURCE_DIR, config.DROPBOX_DEST_DIR, config.DROPBOX_ARCHIVE_DIR]:
-        dbx.create_folder_if_not_exists(folder)
+    for folder in [config.DROPBOX_SOURCE_DIR, config.DROPBOX_DEST_DIR]:
+        # Корневая папка ("") всегда существует, ее создавать не нужно.
+        if folder:
+            dbx.create_folder_if_not_exists(folder)
 
     files_to_process = dbx.list_files(config.DROPBOX_SOURCE_DIR)
     if not files_to_process:
@@ -120,10 +114,14 @@ def main_workflow():
     for entry in files_to_process:
         if isinstance(entry, dropbox.files.FileMetadata) and entry.name.lower().endswith('.pdf'):
             logging.info(f"--- Processing file: {entry.name} ---")
+            start_time = time.monotonic()
             try:
                 process_single_file(dbx, entry)
+                duration = time.monotonic() - start_time
+                logging.info(f"Finished processing {entry.name}. Took {duration:.2f} seconds.")
             except Exception as e:
-                logging.error(f"FATAL: Failed to process file {entry.name}. Error: {e}", exc_info=True)
+                duration = time.monotonic() - start_time
+                logging.error(f"FATAL: Failed to process file {entry.name} after {duration:.2f} seconds. Error: {e}", exc_info=True)
         else:
             logging.warning(f"Skipping non-PDF or folder entry: {entry.name}")
 
