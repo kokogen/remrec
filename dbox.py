@@ -51,6 +51,15 @@ class DropboxClient:
                 logging.error(f"Failed to upload file to '{dropbox_path}': {e}")
                 raise
 
+    def move_file(self, from_path, to_path):
+        """Перемещает файл внутри Dropbox."""
+        try:
+            logging.info(f"Moving {from_path} to {to_path}...")
+            self.dbx.files_move_v2(from_path, to_path)
+        except ApiError as e:
+            logging.error(f"Failed to move file from '{from_path}' to '{to_path}': {e}")
+            raise
+
     def delete_file(self, path):
         """Удаляет файл или папку в Dropbox."""
         try:

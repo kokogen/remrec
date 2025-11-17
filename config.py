@@ -25,6 +25,7 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 # --- Пути в Dropbox ---
 DROPBOX_SOURCE_DIR = ""  # Папка, где ищем новые файлы (пустая строка - это корень)
 DROPBOX_DEST_DIR = "/txt"    # Папка для сохранения результатов
+DROPBOX_FAILED_DIR = "/failed_files" # Папка для сбойных файлов (карантин)
 
 # --- Локальные пути (внутри контейнера) ---
 LOCAL_BUF_DIR = BASE_DIR / "buf"
@@ -35,6 +36,7 @@ LOCK_FILE_PATH = BASE_DIR / "app.lock"
 # --- Настройки AI ---
 RECOGNITION_MODEL = "gemini-2.5-flash"
 RECOGNITION_PROMPT = "Распознай рукописный текст на изображении."
+PDF_DPI = 200 # Качество сканирования PDF в DPI (влияет на точность и скорость)
 
 # --- Настройки логирования ---
 LOG_FILE = BASE_DIR / "app.log"
