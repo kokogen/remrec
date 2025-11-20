@@ -24,7 +24,7 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
 # --- Пути в Dropbox ---
 DROPBOX_SOURCE_DIR = ""  # Папка, где ищем новые файлы (пустая строка - это корень)
-DROPBOX_DEST_DIR = "/txt"    # Папка для сохранения результатов
+DROPBOX_DEST_DIR = "/rm2"    # Папка для сохранения результатов
 DROPBOX_FAILED_DIR = "/failed_files" # Папка для сбойных файлов (карантин)
 
 # --- Локальные пути (внутри контейнера) ---

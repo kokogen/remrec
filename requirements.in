@@ -1,0 +1,12 @@
+# requirements.txt
+python-dotenv
+dropbox
+openai
+pdf2image
+reportlab
+Pillow
+filelock
+
+# Development tools
+ruff
+dotenv

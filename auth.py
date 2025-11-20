@@ -52,10 +52,17 @@ def exchange_code_for_token(client_id, client_secret, code, redirect_uri):
         print("Ошибка получения токенов:", response.status_code, response.text)
         return None
 
+import os
+from dotenv import load_dotenv
+
 if __name__ == '__main__':
-    client_id = '0fcui56jhdh2lor'
-    client_secret = '9wp5q2v360qip0p'
+    load_dotenv()
+    client_id = os.getenv('DROPBOX_APP_KEY')
+    client_secret = os.getenv('DROPBOX_APP_SECRET')
     redirect_uri = 'http://localhost:8080/oauth_callback'
+
+    if not client_id or not client_secret:
+        raise ValueError("DROPBOX_APP_KEY and DROPBOX_APP_SECRET must be set in .env file")
 
     params = {
         "client_id": client_id,
