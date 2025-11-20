@@ -31,12 +31,6 @@ def main_workflow():
 
     logging.info("Starting workflow...")
     
-    # Проверка наличия всех необходимых секретов
-    required_secrets = ["DROPBOX_REFRESH_TOKEN", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "OPENAI_API_KEY"]
-    if not all(getattr(config, secret) for secret in required_secrets):
-        logging.error("One or more required environment variables are missing. Exiting.")
-        return
-
     dbx = DropboxClient(settings.DROPBOX_APP_KEY, settings.DROPBOX_APP_SECRET, settings.DROPBOX_REFRESH_TOKEN)
     
     # Проверяем/создаем необходимые папки в Dropbox
