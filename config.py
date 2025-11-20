@@ -1,46 +1,56 @@
 # config.py
-import os
 from pathlib import Path
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Корневая директория проекта
-BASE_DIR = Path(__file__).resolve().parent
+# Определяем все настройки в одном классе
+class Settings(BaseSettings):
+    """
+    Централизованная конфигурация приложения с валидацией типов.
+    Автоматически читает переменные из .env файла.
+    """
+    # --- Секреты из .env ---
+    DROPBOX_APP_KEY: str
+    DROPBOX_APP_SECRET: str
+    DROPBOX_REFRESH_TOKEN: str
+    OPENAI_API_KEY: str
+    OPENAI_BASE_URL: str
+    LOG_LEVEL: str = "INFO"
 
-# Загружаем переменные окружения из .env файла
-# Убедитесь, что .env файл существует в той же директории, что и этот скрипт
-env_path = BASE_DIR / ".env"
-if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
-else:
-    print(f"Warning: .env file not found at {env_path}. Please create it.")
+    # --- Пути в Dropbox (можно переопределить в .env) ---
+    DROPBOX_SOURCE_DIR: str = ""
+    DROPBOX_DEST_DIR: str = "/rm2"
+    DROPBOX_FAILED_DIR: str = "/failed_files"
 
+    # --- Настройки AI (можно переопределить в .env) ---
+    RECOGNITION_MODEL: str = "gemini-2.5-flash"
+    RECOGNITION_PROMPT: str = "Распознай рукописный текст на изображении."
+    PDF_DPI: int = 200
 
-# --- Секреты ---
-DROPBOX_APP_KEY = os.getenv("DROPBOX_APP_KEY")
-DROPBOX_APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
-DROPBOX_REFRESH_TOKEN = os.getenv("DROPBOX_REFRESH_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+    # --- Константы и вычисляемые пути ---
+    # Эти поля не читаются из .env, а вычисляются на лету
+    BASE_DIR: Path = Path(__file__).resolve().parent
+    
+    @property
+    def LOCAL_BUF_DIR(self) -> Path:
+        return self.BASE_DIR / "buf"
 
-# --- Пути в Dropbox ---
-DROPBOX_SOURCE_DIR = ""  # Папка, где ищем новые файлы (пустая строка - это корень)
-DROPBOX_DEST_DIR = "/rm2"    # Папка для сохранения результатов
-DROPBOX_FAILED_DIR = "/failed_files" # Папка для сбойных файлов (карантин)
+    @property
+    def FONT_PATH(self) -> Path:
+        return self.BASE_DIR / "DejaVuSans.ttf"
 
-# --- Локальные пути (внутри контейнера) ---
-LOCAL_BUF_DIR = BASE_DIR / "buf"
-# Убедитесь, что шрифт DejaVuSans.ttf лежит в корне проекта
-FONT_PATH = BASE_DIR / "DejaVuSans.ttf" 
-LOCK_FILE_PATH = BASE_DIR / "app.lock"
+    @property
+    def LOCK_FILE_PATH(self) -> Path:
+        return self.BASE_DIR / "app.lock"
 
-# --- Настройки AI ---
-RECOGNITION_MODEL = "gemini-2.5-flash"
-RECOGNITION_PROMPT = "Распознай рукописный текст на изображении."
-PDF_DPI = 200 # Качество сканирования PDF в DPI (влияет на точность и скорость)
+    @property
+    def LOG_FILE(self) -> Path:
+        return self.BASE_DIR / "app.log"
 
-# --- Настройки логирования ---
-LOG_FILE = BASE_DIR / "app.log"
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    # Конфигурация Pydantic для чтения из .env файла
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra='ignore')
 
-# Создаем необходимые директории
-LOCAL_BUF_DIR.mkdir(exist_ok=True)
+# Создаем единственный экземпляр настроек для всего приложения
+settings = Settings()
+
+# Создаем необходимые директории при старте
+settings.LOCAL_BUF_DIR.mkdir(exist_ok=True)

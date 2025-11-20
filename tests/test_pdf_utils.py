@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock, call, ANY
 from pdf_utils import txt_to_pdf_line_by_line
 
 # Патчим все зависимости, чтобы изолировать нашу функцию
-@patch('pdf_utils.config')
+@patch('pdf_utils.settings')
 @patch('pdf_utils.pdfmetrics.registerFont')
 @patch('pdf_utils.TTFont')
 @patch('pdf_utils.SimpleDocTemplate')
@@ -40,7 +40,7 @@ def test_txt_to_pdf_success(
     # Проверяем, что итоговый документ был построен
     mock_doc_instance.build.assert_called_once()
 
-@patch('pdf_utils.config')
+@patch('pdf_utils.settings')
 def test_txt_to_pdf_font_not_found(mock_config):
     """
     Тест на случай, когда файл шрифта не найден.

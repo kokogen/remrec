@@ -3,12 +3,12 @@ import base64
 import io
 import logging
 from openai import OpenAI
-import config
+from config import settings
 
 try:
     client = OpenAI(
-        base_url=config.OPENAI_BASE_URL,
-        api_key=config.OPENAI_API_KEY
+        base_url=settings.OPENAI_BASE_URL,
+        api_key=settings.OPENAI_API_KEY
     )
 except Exception as e:
     logging.error(f"Failed to initialize OpenAI client: {e}")
@@ -31,12 +31,12 @@ def recognize(img_base64: str) -> str:
     try:
         logging.info("Sending image to recognition API...")
         completion = client.chat.completions.create(
-            model=config.RECOGNITION_MODEL,
+            model=settings.RECOGNITION_MODEL,
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": config.RECOGNITION_PROMPT},
+                        {"type": "text", "text": settings.RECOGNITION_PROMPT},
                         {
                             "type": "image_url",
                             "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}

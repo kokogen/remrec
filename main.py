@@ -4,7 +4,7 @@ import dropbox
 import time
 from filelock import FileLock, Timeout
 
-import config
+from config import settings
 from dbox import DropboxClient
 from exceptions import PermanentError, TransientError
 from processing import process_single_file
@@ -12,14 +12,14 @@ from processing import process_single_file
 def setup_logging():
     """Настраивает логирование в файл и в консоль."""
     # Убедимся, что уровень логирования корректен
-    log_level_name = config.LOG_LEVEL.upper()
+    log_level_name = settings.LOG_LEVEL.upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
 
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler(config.LOG_FILE),
+            logging.FileHandler(settings.LOG_FILE),
             logging.StreamHandler()  # Для вывода в `docker logs`
         ]
     )
@@ -37,15 +37,15 @@ def main_workflow():
         logging.error("One or more required environment variables are missing. Exiting.")
         return
 
-    dbx = DropboxClient(config.DROPBOX_APP_KEY, config.DROPBOX_APP_SECRET, config.DROPBOX_REFRESH_TOKEN)
+    dbx = DropboxClient(settings.DROPBOX_APP_KEY, settings.DROPBOX_APP_SECRET, settings.DROPBOX_REFRESH_TOKEN)
     
     # Проверяем/создаем необходимые папки в Dropbox
-    for folder in [config.DROPBOX_SOURCE_DIR, config.DROPBOX_DEST_DIR]:
+    for folder in [settings.DROPBOX_SOURCE_DIR, settings.DROPBOX_DEST_DIR]:
         # Корневая папка ("") всегда существует, ее создавать не нужно.
         if folder:
             dbx.create_folder_if_not_exists(folder)
 
-    files_to_process = dbx.list_files(config.DROPBOX_SOURCE_DIR)
+    files_to_process = dbx.list_files(settings.DROPBOX_SOURCE_DIR)
     if not files_to_process:
         logging.info("No new files to process.")
         return
@@ -64,7 +64,7 @@ def main_workflow():
                 duration = time.monotonic() - start_time
                 logging.error(f"PERMANENT ERROR processing file {entry.name} after {duration:.2f} seconds. Moving to quarantine. Error: {e}", exc_info=True)
                 try:
-                    quarantine_path = f"{config.DROPBOX_FAILED_DIR}/{entry.name}"
+                    quarantine_path = f"{settings.DROPBOX_FAILED_DIR}/{entry.name}"
                     dbx.move_file(entry.path_display, quarantine_path)
                     logging.warning(f"Moved failed file {entry.name} to quarantine folder.")
                 except Exception as move_e:
@@ -78,7 +78,7 @@ def main_workflow():
                 duration = time.monotonic() - start_time
                 logging.critical(f"UNHANDLED CRITICAL ERROR processing file {entry.name} after {duration:.2f} seconds. Moving to quarantine as a precaution. Error: {e}", exc_info=True)
                 try:
-                    quarantine_path = f"{config.DROPBOX_FAILED_DIR}/{entry.name}"
+                    quarantine_path = f"{settings.DROPBOX_FAILED_DIR}/{entry.name}"
                     dbx.move_file(entry.path_display, quarantine_path)
                     logging.warning(f"Moved failed file {entry.name} to quarantine folder as a precaution.")
                 except Exception as move_e:
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         logging.info("Single run finished.")
     else:
         # Стандартный режим работы для cron с блокировкой
-        lock = FileLock(config.LOCK_FILE_PATH)
+        lock = FileLock(settings.LOCK_FILE_PATH)
         try:
             with lock.acquire(timeout=5):
                 logging.info("Lock acquired. Starting scheduled application run.")

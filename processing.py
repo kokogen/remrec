@@ -5,7 +5,7 @@ import dropbox
 import openai
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
 
-import config
+from config import settings
 from dbox import DropboxClient
 from exceptions import PermanentError, TransientError
 from recognition import image_to_base64, recognize
@@ -16,8 +16,8 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
     Полный цикл обработки одного файла с детальной обработкой ошибок на каждом шаге.
     При ошибке выбрасывает TransientError или PermanentError.
     """
-    local_pdf_path = config.LOCAL_BUF_DIR / file_entry.name
-    result_pdf_path = config.LOCAL_BUF_DIR / f"recognized_{file_entry.name}"
+    local_pdf_path = settings.LOCAL_BUF_DIR / file_entry.name
+    result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_entry.name}"
 
     try:
         # 1. Скачать файл
@@ -30,7 +30,7 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
         # 2. Конвертировать PDF в изображения
         try:
             logging.info(f"Converting PDF {file_entry.name} to images...")
-            pages = convert_from_path(str(local_pdf_path), dpi=config.PDF_DPI)
+            pages = convert_from_path(str(local_pdf_path), dpi=settings.PDF_DPI)
             if not pages:
                 raise PermanentError("PDF conversion resulted in 0 pages.")
         except (pdf2image_exceptions.PDFPageCountError, pdf2image_exceptions.PDFSyntaxError) as e:
@@ -64,7 +64,7 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
 
         # 5. Загрузить результат в Dropbox
         try:
-            dest_path = f"{config.DROPBOX_DEST_DIR}/{result_pdf_path.name}"
+            dest_path = f"{settings.DROPBOX_DEST_DIR}/{result_pdf_path.name}"
             dbx_client.upload_file(result_pdf_path, dest_path)
         except dropbox.exceptions.ApiError as e:
             raise TransientError(f"Dropbox API error during upload: {e}") from e
