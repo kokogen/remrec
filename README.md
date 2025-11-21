@@ -108,3 +108,17 @@ docker-compose down
 - `Dockerfile`: Defines the application's container image.
 - `docker-compose.yml`: Defines how to run the application service.
 - `cronjob`: The cron task definition file.
+
+## Testing
+
+This project uses `pytest` for unit and integration testing. Mocks are heavily used to isolate services and test logic independently of external APIs (Dropbox, OpenAI).
+
+The tests are located in the `tests/` directory.
+
+### Running Tests
+
+To run the complete test suite, execute the following command from the project root:
+
+```bash
+.venv/bin/pytest -v
+```
