@@ -1,9 +1,9 @@
 # exceptions.py
 
 class PermanentError(Exception):
-    """Ошибка, которая не исправится повторной попыткой (например, битый файл)."""
+    """An error that will not be fixed by a retry (e.g., a corrupted file)."""
     pass
 
 class TransientError(Exception):
-    """Временная ошибка (например, сбой сети), которая может исчезнуть при повторной попытке."""
+    """A temporary error (e.g., a network failure) that might resolve on a retry."""
     pass

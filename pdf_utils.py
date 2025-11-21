@@ -8,7 +8,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 def txt_to_pdf_line_by_line(txt_content: str, pdf_path: str):
-    """Сохраняет текстовый контент в PDF, сохраняя переносы строк."""
+    """Saves text content to a PDF, preserving line breaks."""
     if not settings.FONT_PATH.exists():
         logging.error(f"Font file not found at {settings.FONT_PATH}. Cannot create PDF.")
         raise FileNotFoundError(f"Font file not found: {settings.FONT_PATH}")

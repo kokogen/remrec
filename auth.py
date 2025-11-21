@@ -8,12 +8,12 @@ class OAuthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         # Обработка запроса и сохранение результата в сервере
         if '/oauth_callback' in self.path:
-            # Допустим, парсим параметр code из URL (упрощённо)
+            # Simplified parsing of the 'code' parameter from the URL
             import urllib.parse as urlparse
             query = urlparse.urlparse(self.path).query
             params = urlparse.parse_qs(query)
             code = params.get('code', [None])[0]
-            self.server.auth_code = code  # сохраняем в сервере
+            self.server.auth_code = code  # Store it in the server instance
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Authorization code received. You can close this window.")
@@ -26,7 +26,7 @@ def run_server_in_thread(port=8080):
     server.auth_code = None
 
     def server_thread():
-        server.handle_request()  # Обработать один запрос и завершить
+        server.handle_request()  # Handle one request and exit
 
     t = threading.Thread(target=server_thread)
     t.start()
@@ -49,7 +49,7 @@ def exchange_code_for_token(client_id, client_secret, code, redirect_uri):
         print("Expires in (seconds):", token_data.get('expires_in'))
         return token_data
     else:
-        print("Ошибка получения токенов:", response.status_code, response.text)
+        print("Error getting tokens:", response.status_code, response.text)
         return None
 
 import os
@@ -75,21 +75,21 @@ if __name__ == '__main__':
     print(auth_url)
 
     server, thread = run_server_in_thread()
-    print("Сервер запущен, ожидаем запрос...")
+    print("Server started, waiting for request...")
 
     webbrowser.open(auth_url)
 
     thread.join(timeout=160)
     if server.auth_code:
         code = server.auth_code
-        print("Получен код:", server.auth_code)
+        print("Code received:", server.auth_code)
     else:
-        print("Код не был получен")
+        print("Code was not received.")
 
     if code: 
         token_data = exchange_code_for_token(client_id, client_secret, code, redirect_uri)
 
         if token_data:
-            print("\nСохраните следующие данные для использования в скриптах:")
+            print("\nSave the following data for use in your scripts:")
             print("Access Token:", token_data['access_token'])
             print("Refresh Token:", token_data['refresh_token'])

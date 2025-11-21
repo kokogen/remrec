@@ -6,8 +6,8 @@ import logging
 
 class DropboxClient:
     """
-    Клиент для взаимодействия с Dropbox API с использованием официального SDK.
-    Автоматически управляет обновлением токенов.
+    Client for interacting with the Dropbox API using the official SDK.
+    Automatically manages token refreshes.
     """
     def __init__(self, app_key, app_secret, refresh_token):
         try:
@@ -16,7 +16,7 @@ class DropboxClient:
                 app_secret=app_secret,
                 oauth2_refresh_token=refresh_token
             )
-            # Проверяем успешную аутентификацию, запросив информацию о текущем пользователе
+            # Verify successful authentication by requesting current user info
             self.dbx.users_get_current_account()
             logging.info("Dropbox client initialized successfully.")
         except Exception as e:
@@ -24,7 +24,7 @@ class DropboxClient:
             raise
 
     def list_files(self, path):
-        """Возвращает список файлов в указанной директории Dropbox."""
+        """Returns a list of files in the specified Dropbox directory."""
         try:
             logging.info(f"Listing files in Dropbox path: '{path}'")
             return self.dbx.files_list_folder(path).entries
@@ -33,7 +33,7 @@ class DropboxClient:
             return []
 
     def download_file(self, dropbox_path, local_path):
-        """Скачивает файл из Dropbox в локальную файловую систему."""
+        """Downloads a file from Dropbox to the local filesystem."""
         try:
             logging.info(f"Downloading {dropbox_path} to {local_path}...")
             self.dbx.files_download_to_file(str(local_path), dropbox_path)
@@ -42,7 +42,7 @@ class DropboxClient:
             raise
 
     def upload_file(self, local_path, dropbox_path):
-        """Загружает локальный файл в Dropbox."""
+        """Uploads a local file to Dropbox."""
         with open(local_path, "rb") as f:
             try:
                 logging.info(f"Uploading {local_path} to {dropbox_path}...")
@@ -52,7 +52,7 @@ class DropboxClient:
                 raise
 
     def move_file(self, from_path, to_path):
-        """Перемещает файл внутри Dropbox."""
+        """Moves a file within Dropbox."""
         try:
             logging.info(f"Moving {from_path} to {to_path}...")
             self.dbx.files_move_v2(from_path, to_path)
@@ -61,7 +61,7 @@ class DropboxClient:
             raise
 
     def delete_file(self, path):
-        """Удаляет файл или папку в Dropbox."""
+        """Deletes a file or folder in Dropbox."""
         try:
             logging.info(f"Deleting {path}...")
             self.dbx.files_delete_v2(path)
@@ -70,7 +70,7 @@ class DropboxClient:
             raise
 
     def create_folder_if_not_exists(self, path):
-        """Создает папку, если она не существует."""
+        """Creates a folder if it does not exist."""
         try:
             self.dbx.files_get_metadata(path)
         except ApiError as e:

@@ -10,8 +10,8 @@ from exceptions import PermanentError, TransientError
 from processing import process_single_file
 
 def setup_logging():
-    """Настраивает логирование в файл и в консоль."""
-    # Убедимся, что уровень логирования корректен
+    """Configures logging to file and console."""
+    # Ensure the log level is correct
     log_level_name = settings.LOG_LEVEL.upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
 
@@ -20,10 +20,10 @@ def setup_logging():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(settings.LOG_FILE),
-            logging.StreamHandler()  # Для вывода в `docker logs`
+            logging.StreamHandler()  # For output to `docker logs`
         ]
     )
-    # Уменьшаем "шум" от сторонних библиотек
+    # Reducing "noise" from third-party libraries
     logging.getLogger("dropbox").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
@@ -33,9 +33,9 @@ def main_workflow():
     
     dbx = DropboxClient(settings.DROPBOX_APP_KEY, settings.DROPBOX_APP_SECRET, settings.DROPBOX_REFRESH_TOKEN)
     
-    # Проверяем/создаем необходимые папки в Dropbox
+    # Check/create necessary folders in Dropbox
     for folder in [settings.DROPBOX_SOURCE_DIR, settings.DROPBOX_DEST_DIR]:
-        # Корневая папка ("") всегда существует, ее создавать не нужно.
+        # The root folder ("") always exists and doesn't need to be created.
         if folder:
             dbx.create_folder_if_not_exists(folder)
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         main_workflow()
         logging.info("Single run finished.")
     else:
-        # Стандартный режим работы для cron с блокировкой
+        # Standard cron job mode with file lock
         lock = FileLock(settings.LOCK_FILE_PATH)
         try:
             with lock.acquire(timeout=5):

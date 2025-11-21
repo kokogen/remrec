@@ -16,17 +16,17 @@ except Exception as e:
     raise
 
 def image_to_base64(img):
-    """Кодирует объект изображения PIL в строку Base64."""
+    """Encodes a PIL image object into a Base64 string."""
     buffered = io.BytesIO()
     img.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
 def recognize(img_base64: str) -> str:
     """
-    Отправляет изображение в API для распознавания текста.
+    Sends an image to the recognition API.
 
-    :param img_base64: Изображение, закодированное в Base64.
-    :return: Распознанный текст.
+    :param img_base64: Base64 encoded image.
+    :return: Recognized text.
     """
     try:
         logging.info("Sending image to recognition API...")
@@ -49,5 +49,5 @@ def recognize(img_base64: str) -> str:
         return completion.choices[0].message.content
     except Exception as e:
         logging.error(f"Recognition API call failed: {e}", exc_info=True)
-        # Пробрасываем ошибку выше, чтобы основной цикл мог ее обработать
+        # Re-raise the error for the main loop to handle
         raise
