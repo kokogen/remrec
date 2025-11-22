@@ -3,21 +3,21 @@ version: '3.8'
 
 services:
   app:
-    # Имя контейнера, которое будет создано
+    # The name of the container that will be created
     container_name: remarkable-app
     
-    # Имя образа, который будет собран
+    # The name of the image that will be built
     image: remarkable-recognizer
     
-    # Указываем Docker Compose, что образ нужно собрать из Dockerfile
-    # в текущей директории ('.')
+    # Tell Docker Compose to build the image from the Dockerfile
+    # in the current directory ('.')
     build: .
     
-    # Указываем файл с переменными окружения (секретами)
+    # Specify the file with environment variables (secrets)
     env_file:
       - .env
       
-    # Политика перезапуска. 'unless-stopped' означает, что контейнер
-    # будет автоматически перезапускаться (например, после перезагрузки сервера),
-    # если он не был остановлен вручную.
+    # Restart policy. 'unless-stopped' means the container
+    # will automatically restart (e.g., after a server reboot)
+    # unless it was manually stopped.
     restart: unless-stopped

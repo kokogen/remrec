@@ -1,67 +1,67 @@
 # Dockerfile
 
-# --- Этап 1: "Строитель" (Builder) ---
-# На этом этапе мы устанавливаем все зависимости, включая системные.
+# --- Stage 1: Builder ---
+# In this stage, we install all dependencies, including system ones.
 FROM python:3.11-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# Устанавливаем системные зависимости, необходимые для сборки
+# Install system dependencies required for building
 RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Создаем виртуальное окружение, чтобы не засорять системный Python
+# Create a virtual environment to avoid polluting the system Python
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Копируем только requirements.txt и устанавливаем зависимости в venv
-# Этот слой будет кэшироваться, если requirements.txt не изменился
+# Copy only requirements.txt and install dependencies into the venv
+# This layer will be cached if requirements.txt has not changed
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем остальной код приложения
+# Copy the rest of the application code
 WORKDIR /app
 COPY . .
 
 
-# --- Этап 2: Финальный образ ---
-# Этот образ будет максимально легковесным и безопасным.
+# --- Stage 2: Final Image ---
+# This image will be as lightweight and secure as possible.
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# Устанавливаем только те системные зависимости, которые нужны для *запуска*
+# Install only the system dependencies needed for *running* the application
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cron \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Создаем пользователя без root-прав
+# Create a non-root user
 RUN addgroup --system appuser && adduser --system --ingroup appuser appuser
 
-# Копируем виртуальное окружение со всеми зависимостями из "строителя"
+# Copy the virtual environment with all dependencies from the builder stage
 COPY --from=builder /opt/venv /opt/venv
 
-# Копируем код приложения из "строителя"
+# Copy the application code from the builder stage
 WORKDIR /app
 COPY --from=builder /app .
 
-# Настраиваем cron
+# Configure cron
 COPY cronjob /etc/cron.d/app-cron
 RUN chmod 0644 /etc/cron.d/app-cron
 RUN touch /var/log/cron.log && chown appuser:appuser /var/log/cron.log
 
-# Устанавливаем правильного владельца для всех файлов приложения
+# Set the correct owner for all application files
 RUN chown -R appuser:appuser /app
 
-# Переключаемся на пользователя без root-прав
+# Switch to the non-root user
 USER appuser
 
-# Устанавливаем PATH, чтобы использовать Python из нашего venv
+# Set the PATH to use Python from our venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Запускаем cron от имени нового пользователя
+# Run cron as the new user
 CMD ["cron", "-f"]
