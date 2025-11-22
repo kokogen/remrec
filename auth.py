@@ -6,7 +6,6 @@ import urllib
 
 class OAuthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Обработка запроса и сохранение результата в сервере
         if '/oauth_callback' in self.path:
             # Simplified parsing of the 'code' parameter from the URL
             import urllib.parse as urlparse

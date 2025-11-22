@@ -12,7 +12,6 @@ try:
     )
 except Exception as e:
     logging.error(f"Failed to initialize OpenAI client: {e}")
-    # Если клиент не инициализируется, нет смысла продолжать
     raise
 
 def image_to_base64(img):
