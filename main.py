@@ -101,7 +101,7 @@ if __name__ == "__main__":
         # Standard cron job mode with file lock
         lock = FileLock(settings.LOCK_FILE_PATH)
         try:
-            with lock.acquire(timeout=5):
+            with lock.acquire(timeout=settings.LOCK_TIMEOUT):
                 logging.info("Lock acquired. Starting scheduled application run.")
                 main_workflow()
                 logging.info("Scheduled run finished. Releasing lock.")

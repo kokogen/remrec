@@ -2,13 +2,13 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Определяем все настройки в одном классе
+# Define all settings in one class
 class Settings(BaseSettings):
     """
-    Централизованная конфигурация приложения с валидацией типов.
-    Автоматически читает переменные из .env файла.
+    Centralized application configuration with type validation.
+    Automatically reads variables from a .env file.
     """
-    # --- Секреты из .env ---
+    # --- Secrets from .env ---
     DROPBOX_APP_KEY: str
     DROPBOX_APP_SECRET: str
     DROPBOX_REFRESH_TOKEN: str
@@ -16,18 +16,21 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str
     LOG_LEVEL: str = "INFO"
 
-    # --- Пути в Dropbox (можно переопределить в .env) ---
+    # --- Dropbox Paths (can be overridden in .env) ---
     DROPBOX_SOURCE_DIR: str = ""
     DROPBOX_DEST_DIR: str = "/rm2"
     DROPBOX_FAILED_DIR: str = "/failed_files"
 
-    # --- Настройки AI (можно переопределить в .env) ---
+    # --- AI Settings (can be overridden in .env) ---
     RECOGNITION_MODEL: str = "gemini-2.5-flash"
-    RECOGNITION_PROMPT: str = "Распознай рукописный текст на изображении."
+    RECOGNITION_PROMPT: str = "Recognize the handwritten text in the image."
     PDF_DPI: int = 200
 
-    # --- Константы и вычисляемые пути ---
-    # Эти поля не читаются из .env, а вычисляются на лету
+    # --- Workflow Settings (can be overridden in .env) ---
+    LOCK_TIMEOUT: int = 5
+
+    # --- Constants and Computed Paths ---
+    # These fields are not read from .env but are computed on the fly
     BASE_DIR: Path = Path(__file__).resolve().parent
     
     @property
@@ -46,11 +49,11 @@ class Settings(BaseSettings):
     def LOG_FILE(self) -> Path:
         return self.BASE_DIR / "app.log"
 
-    # Конфигурация Pydantic для чтения из .env файла
+    # Pydantic configuration to read from the .env file
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra='ignore')
 
-# Создаем единственный экземпляр настроек для всего приложения
+# Create a single settings instance for the entire application
 settings = Settings()
 
-# Создаем необходимые директории при старте
+# Create necessary directories on startup
 settings.LOCAL_BUF_DIR.mkdir(exist_ok=True)
