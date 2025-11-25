@@ -7,7 +7,24 @@ set -e
 DOCKER_USERNAME="kokogen" # Replace with your Docker Hub username
 IMAGE_NAME="remrec"       # The name of your Docker image
 # Default tag is 'latest' if no argument is provided
-IMAGE_TAG=${1:-latest}
+# Try to get the latest Git tag. If no tags, use short commit hash.
+if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+    if [ -z "$GIT_TAG" ]; then
+        # No tags found, use short commit hash
+        GIT_TAG=$(git rev-parse --short HEAD)
+        echo "No Git tags found. Using short commit hash as tag: ${GIT_TAG}"
+    else
+        echo "Using Git tag as tag: ${GIT_TAG}"
+    fi
+else
+    # Not a git repository, fallback to 'latest'
+    GIT_TAG="latest"
+    echo "Not a Git repository. Using default tag: ${GIT_TAG}"
+fi
+
+# Use the Git tag or provided argument, preferring argument if present
+IMAGE_TAG=${1:-$GIT_TAG}
 
 FULL_IMAGE_NAME="${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}"
 
