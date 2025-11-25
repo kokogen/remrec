@@ -57,8 +57,6 @@ RUN touch /var/log/cron.log && chown appuser:appuser /var/log/cron.log
 # Set the correct owner for all application files
 RUN chown -R appuser:appuser /app
 
-# Switch to the non-root user
-USER appuser
 
 # Set the PATH to use Python from our venv
 ENV PATH="/opt/venv/bin:$PATH"

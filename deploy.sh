@@ -29,6 +29,22 @@ SSH_COMMANDS=$(cat <<EOF
     echo "Changing to remote project directory: ${REMOTE_PROJECT_PATH}"
     cd "${REMOTE_PROJECT_PATH}"
 
+    # Determine the correct docker-compose command
+    DOCKER_COMPOSE_CMD=""
+    if command -v docker-compose &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+    elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker compose"
+    elif [ -f "/usr/local/bin/docker-compose" ]; then
+        DOCKER_COMPOSE_CMD="/usr/local/bin/docker-compose"
+    elif [ -f "/var/packages/Docker/target/usr/bin/docker-compose" ]; then
+        DOCKER_COMPOSE_CMD="/var/packages/Docker/target/usr/bin/docker-compose"
+    else
+        echo "Error: docker-compose command not found on Synology." >&2
+        exit 1
+    fi
+    echo "Using docker-compose command: \${DOCKER_COMPOSE_CMD}"
+
     # Update the REMREC_IMAGE_TAG in the .env file
     if [ -f .env ]; then
         echo "Updating REMREC_IMAGE_TAG in .env on Synology..."
@@ -39,17 +55,17 @@ SSH_COMMANDS=$(cat <<EOF
     fi
 
     echo "Pulling Docker image: kokogen/remrec:${IMAGE_TAG}..."
-    docker-compose pull
+    sudo \${DOCKER_COMPOSE_CMD} pull
 
     echo "Restarting Docker containers..."
-    docker-compose up -d --remove-orphans
+    sudo \${DOCKER_COMPOSE_CMD} up -d --remove-orphans
 
     echo "Deployment to Synology complete."
 EOF
 )
 
 # Execute SSH commands
-ssh "${SYNOLOGY_USER}@${SYNOLOGY_HOST}" "${SSH_COMMANDS}"
+ssh -t -p 22222 "${SYNOLOGY_USER}@${SYNOLOGY_HOST}" "${SSH_COMMANDS}"
 
 echo ""
 echo "--- Deployment Script Finished ---"
