@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+# --- Configuration ---
+# IMPORTANT: Replace these with your actual Synology details
+SYNOLOGY_USER="koko"
+SYNOLOGY_HOST="192.168.0.249"
+REMOTE_PROJECT_PATH="/volume1/docker/remrec" # Path to your project on Synology (where docker-compose.yml and .env are)
+
+# Get the Docker image tag. Argument takes precedence.
+if [ -z "$1" ]; then
+    echo "Usage: $0 <docker_image_tag>"
+    echo "Please provide the Docker image tag to deploy."
+    exit 1
+fi
+IMAGE_TAG="$1"
+
+echo "--- Deploying Docker Image to Synology ---"
+echo "Target Synology: ${SYNOLOGY_USER}@${SYNOLOGY_HOST}"
+echo "Remote Project Path: ${REMOTE_PROJECT_PATH}"
+echo "Image Tag to Deploy: ${IMAGE_TAG}"
+
+# --- SSH Commands to execute on Synology ---
+SSH_COMMANDS=$(cat <<EOF
+    set -e
+
+    echo "Changing to remote project directory: ${REMOTE_PROJECT_PATH}"
+    cd "${REMOTE_PROJECT_PATH}"
+
+    # Update the REMREC_IMAGE_TAG in the .env file
+    if [ -f .env ]; then
+        echo "Updating REMREC_IMAGE_TAG in .env on Synology..."
+        sed -i'' -e "s/^REMREC_IMAGE_TAG=.*$/REMREC_IMAGE_TAG=${IMAGE_TAG}/g" .env
+    else
+        echo ".env file not found on Synology at ${REMOTE_PROJECT_PATH}. Creating a new one."
+        echo "REMREC_IMAGE_TAG=${IMAGE_TAG}" > .env
+    fi
+
+    echo "Pulling Docker image: kokogen/remrec:${IMAGE_TAG}..."
+    docker-compose pull
+
+    echo "Restarting Docker containers..."
+    docker-compose up -d --remove-orphans
+
+    echo "Deployment to Synology complete."
+EOF
+)
+
+# Execute SSH commands
+ssh "${SYNOLOGY_USER}@${SYNOLOGY_HOST}" "${SSH_COMMANDS}"
+
+echo ""
+echo "--- Deployment Script Finished ---"
+echo "Please ensure you have replaced placeholder values in deploy.sh with your actual Synology details."
