@@ -2,7 +2,6 @@
 import logging
 import dropbox
 import time
-from filelock import FileLock, Timeout
 
 from config import settings
 from dbox import DropboxClient
@@ -81,32 +80,15 @@ def main_workflow():
             logging.warning(f"Skipping non-PDF or folder entry: {entry.name}")
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Remarkable Recognizer Workflow.")
-    parser.add_argument(
-        '--run-once',
-        action='store_true',
-        help='Run the workflow once immediately without cron or file lock.'
-    )
-    args = parser.parse_args()
-
     setup_logging()
+    logging.info(f"Starting application in infinite loop mode. Sleep interval: {settings.LOOP_SLEEP_SECONDS} seconds.")
 
-    if args.run_once:
-        logging.info("Executing a single run via --run-once flag.")
-        main_workflow()
-        logging.info("Single run finished.")
-    else:
-        # Standard cron job mode with file lock
-        lock = FileLock(settings.LOCK_FILE_PATH)
+    while True:
         try:
-            with lock.acquire(timeout=settings.LOCK_TIMEOUT):
-                logging.info("Lock acquired. Starting scheduled application run.")
-                main_workflow()
-                logging.info("Scheduled run finished. Releasing lock.")
-            
-        except Timeout:
-            logging.warning("Another instance is already running (lock file is busy). Exiting.")
+            main_workflow()
         except Exception as e:
-            logging.critical(f"An unexpected error occurred in the main application block: {e}", exc_info=True)
+            # This provides a top-level catch to prevent the entire loop from crashing.
+            logging.critical(f"An unexpected error occurred in the main loop: {e}", exc_info=True)
+        
+        logging.info(f"Workflow run finished. Sleeping for {settings.LOOP_SLEEP_SECONDS} seconds.")
+        time.sleep(settings.LOOP_SLEEP_SECONDS)

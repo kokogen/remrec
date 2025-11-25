@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     PDF_DPI: int = 200
 
     # --- Workflow Settings (can be overridden in .env) ---
-    LOCK_TIMEOUT: int = 5
+    LOOP_SLEEP_SECONDS: int = 120
 
     # --- Constants and Computed Paths ---
     # These fields are not read from .env but are computed on the fly
@@ -40,10 +40,6 @@ class Settings(BaseSettings):
     @property
     def FONT_PATH(self) -> Path:
         return self.BASE_DIR / "DejaVuSans.ttf"
-
-    @property
-    def LOCK_FILE_PATH(self) -> Path:
-        return self.BASE_DIR / "app.lock"
 
     @property
     def LOG_FILE(self) -> Path:

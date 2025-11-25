@@ -1,9 +1,0 @@
-# cronjob
-# Run the script every 2 minutes.
-# User: root (the default user in the container)
-# Command: absolute path to python and the script
-# Output redirection: stdout (>>) and stderr (2>>) to the Docker process's stdout (PID 1)
-*/2 * * * * appuser /usr/local/bin/python /app/main.py >> /proc/1/fd/1 2>>/proc/1/fd/2
-
-# IMPORTANT: cron requires a blank line at the end of the file to work correctly.
-

@@ -35,7 +35,6 @@ ENV PYTHONUNBUFFERED 1
 
 # Install only the system dependencies needed for *running* the application
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cron \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
@@ -49,10 +48,7 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --from=builder /app .
 
-# Configure cron
-COPY cronjob /etc/cron.d/app-cron
-RUN chmod 0644 /etc/cron.d/app-cron
-RUN touch /var/log/cron.log && chown appuser:appuser /var/log/cron.log
+
 
 # Set the correct owner for all application files
 RUN chown -R appuser:appuser /app
@@ -61,5 +57,8 @@ RUN chown -R appuser:appuser /app
 # Set the PATH to use Python from our venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Run cron as the new user
-CMD ["cron", "-f"]
+# Switch to the non-root user
+USER appuser
+
+# Start the main application loop
+CMD ["python", "main.py"]

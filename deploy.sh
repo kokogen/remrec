@@ -22,6 +22,26 @@ echo "Target Synology: ${SYNOLOGY_USER}@${SYNOLOGY_HOST}"
 echo "Remote Project Path: ${REMOTE_PROJECT_PATH}"
 echo "Image Tag to Deploy: ${IMAGE_TAG}"
 
+# Check if local .env file exists
+if [ ! -f .env ]; then
+    echo "Local .env file not found. Please ensure it exists in the project root."
+    exit 1
+fi
+
+echo "Copying local .env file to Synology..."
+cat .env | ssh -p 22222 "${SYNOLOGY_USER}@${SYNOLOGY_HOST}" "cat > ${REMOTE_PROJECT_PATH}/.env"
+echo ".env file copied successfully."
+
+# Check if local docker-compose.yml file exists
+if [ ! -f docker-compose.yml ]; then
+    echo "Local docker-compose.yml file not found. Please ensure it exists in the project root."
+    exit 1
+fi
+
+echo "Copying local docker-compose.yml file to Synology..."
+cat docker-compose.yml | ssh -p 22222 "${SYNOLOGY_USER}@${SYNOLOGY_HOST}" "cat > ${REMOTE_PROJECT_PATH}/docker-compose.yml"
+echo "docker-compose.yml file copied successfully."
+
 # --- SSH Commands to execute on Synology ---
 SSH_COMMANDS=$(cat <<EOF
     set -e
