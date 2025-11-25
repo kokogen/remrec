@@ -62,12 +62,37 @@ The `auth.py` script is a one-time utility to get your refresh token.
 
 All commands should be run from the root of the project directory.
 
+### Development Workflow: Build and Publish Docker Image
+
+When working on the application, you'll build and publish the Docker image to Docker Hub from your local development machine. This image will then be pulled by the deployment server.
+
+1.  **Log in to Docker Hub:**
+    Ensure you are logged into Docker Hub on your development machine:
+    ```bash
+    docker login
+    ```
+    (You may need to run `docker logout` first if you encounter issues)
+
+2.  **Build and Push the Image:**
+    Use the provided script to build and push the Docker image to your private Docker Hub repository. You can specify a tag for versioning (e.g., `v1.0.0`) or let it default to `latest`.
+    ```bash
+    ./build_and_push.sh [tag]
+    ```
+    Example:
+    ```bash
+    ./build_and_push.sh v1.0.0
+    ```
+    This will build the image `kokogen/remrec:v1.0.0` and push it to Docker Hub. If no tag is provided, it will use `latest`.
+
 ### Running in Production (Cron Mode)
 
-This command builds the Docker image (if it doesn't exist) and starts the service in the background. The `cron` job inside the container will then trigger the processing script on its schedule (default: every 5 minutes).
+To deploy the application on your server, first ensure that the `.env` file on the server specifies the correct image tag (e.g., `REMREC_IMAGE_TAG=v1.0.0`).
+
+Then, pull the latest image and start the service in the background. The `cron` job inside the container will then trigger the processing script on its schedule (default: every 5 minutes).
 
 ```shell
-docker-compose up -d --build
+docker-compose pull
+docker-compose up -d
 ```
 
 ### Viewing Logs

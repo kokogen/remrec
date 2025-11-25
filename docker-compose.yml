@@ -7,11 +7,7 @@ services:
     container_name: remarkable-app
     
     # The name of the image that will be built
-    image: remarkable-recognizer
-    
-    # Tell Docker Compose to build the image from the Dockerfile
-    # in the current directory ('.')
-    build: .
+    image: kokogen/remrec:${REMREC_IMAGE_TAG:-latest}
     
     # Specify the file with environment variables (secrets)
     env_file:
