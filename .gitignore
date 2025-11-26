@@ -2,10 +2,12 @@
 .venv/
 .env
 .ruff_cache/
+.pytest_cache/
 __pycache__/
 *.pyc
 app.lock
 *.log
+.dropbox.token
 buf/
 grbg/
 .DS_Store

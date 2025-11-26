@@ -1,0 +1,25 @@
+# .dockerignore
+
+# Git
+.git
+.gitignore
+
+# Python virtual environment
+.venv/
+.env
+
+# Caches and local files
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+app.lock
+*.log
+.dropbox.token
+.DS_Store
+.idea/
+.vscode/
+
+# Documentation / Agent context
+README.md
+GEMINI.md
