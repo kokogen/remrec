@@ -14,6 +14,7 @@ services:
       - .env
     volumes:
       - ./app.log:/app/app.log
+      - ./.dropbox.token:/app/.dropbox.token
       
     # Restart policy. 'unless-stopped' means the container
     # will automatically restart (e.g., after a server reboot)

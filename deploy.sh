@@ -9,6 +9,7 @@ SYNOLOGY_USER="koko"
 SYNOLOGY_HOST="192.168.0.249"
 REMOTE_PROJECT_PATH="/volume1/docker/remrec" # Path to your project on Synology (where docker-compose.yml and .env are)
 REMOTE_LOG_FILE_PATH="${REMOTE_PROJECT_PATH}/app.log" # Path to the app.log file on Synology
+REMOTE_TOKEN_FILE_PATH="${REMOTE_PROJECT_PATH}/.dropbox.token" # Path to the Dropbox token file on Synology
 
 # Get the Docker image tag. Argument takes precedence.
 if [ -z "$1" ]; then
@@ -52,6 +53,9 @@ SSH_COMMANDS=$(cat <<EOF
 
     echo "Ensuring log file exists on remote: ${REMOTE_LOG_FILE_PATH}"
     touch "${REMOTE_LOG_FILE_PATH}"
+
+    echo "Ensuring token file exists on remote: ${REMOTE_TOKEN_FILE_PATH}"
+    touch "${REMOTE_TOKEN_FILE_PATH}"
 
     # Determine the correct docker-compose command
     DOCKER_COMPOSE_CMD=""
