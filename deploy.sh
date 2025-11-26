@@ -8,6 +8,7 @@ set -e
 SYNOLOGY_USER="koko"
 SYNOLOGY_HOST="192.168.0.249"
 REMOTE_PROJECT_PATH="/volume1/docker/remrec" # Path to your project on Synology (where docker-compose.yml and .env are)
+REMOTE_LOG_FILE_PATH="${REMOTE_PROJECT_PATH}/app.log" # Path to the app.log file on Synology
 
 # Get the Docker image tag. Argument takes precedence.
 if [ -z "$1" ]; then
@@ -48,6 +49,9 @@ SSH_COMMANDS=$(cat <<EOF
 
     echo "Changing to remote project directory: ${REMOTE_PROJECT_PATH}"
     cd "${REMOTE_PROJECT_PATH}"
+
+    echo "Ensuring log file exists on remote: ${REMOTE_LOG_FILE_PATH}"
+    touch "${REMOTE_LOG_FILE_PATH}"
 
     # Determine the correct docker-compose command
     DOCKER_COMPOSE_CMD=""
