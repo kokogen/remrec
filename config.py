@@ -20,18 +20,18 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     DROPBOX_REFRESH_TOKEN: Optional[str] = None
 
-    # --- Dropbox Paths (can be overridden in .env) ---
-    DROPBOX_SOURCE_DIR: str = ""
-    DROPBOX_DEST_DIR: str = "/rm2"
-    DROPBOX_FAILED_DIR: str = "/failed_files"
+    # --- Dropbox Paths (must be set in .env) ---
+    DROPBOX_SOURCE_DIR: str
+    DROPBOX_DEST_DIR: str
+    DROPBOX_FAILED_DIR: str
 
-    # --- AI Settings (can be overridden in .env) ---
-    RECOGNITION_MODEL: str = "gemini-2.5-flash"
-    RECOGNITION_PROMPT: str = "Recognize the handwritten text in the image."
-    PDF_DPI: int = 200
+    # --- AI Settings (must be set in .env) ---
+    RECOGNITION_MODEL: str
+    RECOGNITION_PROMPT: str
+    PDF_DPI: int
 
-    # --- Workflow Settings (can be overridden in .env) ---
-    LOOP_SLEEP_SECONDS: int = 120
+    # --- Workflow Settings (must be set in .env) ---
+    LOOP_SLEEP_SECONDS: int
 
     # --- Constants and Computed Paths ---
     BASE_DIR: Path = Path(__file__).resolve().parent
