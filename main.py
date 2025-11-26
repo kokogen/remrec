@@ -79,16 +79,32 @@ def main_workflow():
         else:
             logging.warning(f"Skipping non-PDF or folder entry: {entry.name}")
 
-if __name__ == "__main__":
-    setup_logging()
-    logging.info(f"Starting application in infinite loop mode. Sleep interval: {settings.LOOP_SLEEP_SECONDS} seconds.")
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Process reMarkable OCR files from Dropbox.")
+    parser.add_argument("--run-once", action="store_true", help="Run the workflow once and then exit.")
+    args = parser.parse_args()
 
-    while True:
+    setup_logging()
+
+    if args.run_once:
+        logging.info("Starting application in single-run mode.")
         try:
             main_workflow()
         except Exception as e:
-            # This provides a top-level catch to prevent the entire loop from crashing.
-            logging.critical(f"An unexpected error occurred in the main loop: {e}", exc_info=True)
-        
-        logging.info(f"Workflow run finished. Sleeping for {settings.LOOP_SLEEP_SECONDS} seconds.")
-        time.sleep(settings.LOOP_SLEEP_SECONDS)
+            logging.critical(f"An unexpected error occurred during the single run: {e}", exc_info=True)
+        logging.info("Single run finished.")
+    else:
+        logging.info(f"Starting application in infinite loop mode. Sleep interval: {settings.LOOP_SLEEP_SECONDS} seconds.")
+        while True:
+            try:
+                main_workflow()
+            except Exception as e:
+                # This provides a top-level catch to prevent the entire loop from crashing.
+                logging.critical(f"An unexpected error occurred in the main loop: {e}", exc_info=True)
+            
+            logging.info(f"Workflow run finished. Sleeping for {settings.LOOP_SLEEP_SECONDS} seconds.")
+            time.sleep(settings.LOOP_SLEEP_SECONDS)
+
+if __name__ == "__main__":
+    main()

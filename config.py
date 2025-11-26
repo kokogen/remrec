@@ -1,20 +1,24 @@
-# config.py
 from pathlib import Path
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
+import logging
+
+TOKEN_STORAGE_FILE = ".dropbox.token"
 
 # Define all settings in one class
 class Settings(BaseSettings):
     """
     Centralized application configuration with type validation.
-    Automatically reads variables from a .env file.
+    Automatically reads variables from a .env file and the token file.
     """
     # --- Secrets from .env ---
     DROPBOX_APP_KEY: str
     DROPBOX_APP_SECRET: str
-    DROPBOX_REFRESH_TOKEN: str
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
     LOG_LEVEL: str = "INFO"
+    DROPBOX_REFRESH_TOKEN: Optional[str] = None
 
     # --- Dropbox Paths (can be overridden in .env) ---
     DROPBOX_SOURCE_DIR: str = ""
@@ -30,9 +34,28 @@ class Settings(BaseSettings):
     LOOP_SLEEP_SECONDS: int = 120
 
     # --- Constants and Computed Paths ---
-    # These fields are not read from .env but are computed on the fly
     BASE_DIR: Path = Path(__file__).resolve().parent
     
+    @model_validator(mode='after')
+    def load_refresh_token(self) -> 'Settings':
+        """Load refresh token from file, falling back to environment variable."""
+        token_file = self.BASE_DIR / TOKEN_STORAGE_FILE
+        
+        if token_file.exists():
+            logging.info(f"Loading refresh token from file: {token_file}")
+            self.DROPBOX_REFRESH_TOKEN = token_file.read_text().strip()
+        
+        elif self.DROPBOX_REFRESH_TOKEN:
+             logging.warning("Loading refresh token from environment variable. Consider using the auth.py script for better security.")
+
+        if not self.DROPBOX_REFRESH_TOKEN:
+            raise ValueError(
+                "Dropbox refresh token not found. "
+                f"Please run 'python auth.py' to generate it and save it to '{TOKEN_STORAGE_FILE}', "
+                "or set DROPBOX_REFRESH_TOKEN in your .env file."
+            )
+        return self
+
     @property
     def LOCAL_BUF_DIR(self) -> Path:
         return self.BASE_DIR / "buf"

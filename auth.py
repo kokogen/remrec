@@ -1,94 +1,94 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import webbrowser
-import requests
-import threading
-import urllib
-
-class OAuthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if '/oauth_callback' in self.path:
-            # Simplified parsing of the 'code' parameter from the URL
-            import urllib.parse as urlparse
-            query = urlparse.urlparse(self.path).query
-            params = urlparse.parse_qs(query)
-            code = params.get('code', [None])[0]
-            self.server.auth_code = code  # Store it in the server instance
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Authorization code received. You can close this window.")
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-def run_server_in_thread(port=8080):
-    server = HTTPServer(('localhost', port), OAuthHandler)
-    server.auth_code = None
-
-    def server_thread():
-        server.handle_request()  # Handle one request and exit
-
-    t = threading.Thread(target=server_thread)
-    t.start()
-    return server, t
-
-def exchange_code_for_token(client_id, client_secret, code, redirect_uri):
-    url = "https://api.dropbox.com/oauth2/token"
-    data = {
-        'code': code,
-        'grant_type': 'authorization_code',
-        'client_id': client_id,
-        'client_secret': client_secret,
-        'redirect_uri': redirect_uri,
-    }
-    response = requests.post(url, data=data)
-    if response.status_code == 200:
-        token_data = response.json()
-        print("Access Token:", token_data.get('access_token'))
-        print("Refresh Token:", token_data.get('refresh_token'))
-        print("Expires in (seconds):", token_data.get('expires_in'))
-        return token_data
-    else:
-        print("Error getting tokens:", response.status_code, response.text)
-        return None
-
+# auth.py
 import os
-from dotenv import load_dotenv
+import secrets
+import hashlib
+import base64
+import webbrowser
+import urllib.parse
+import requests
+from config import settings
 
-if __name__ == '__main__':
-    load_dotenv()
-    client_id = os.getenv('DROPBOX_APP_KEY')
-    client_secret = os.getenv('DROPBOX_APP_SECRET')
-    redirect_uri = 'http://localhost:8080/oauth_callback'
+TOKEN_STORAGE_FILE = ".dropbox.token"
 
-    if not client_id or not client_secret:
-        raise ValueError("DROPBOX_APP_KEY and DROPBOX_APP_SECRET must be set in .env file")
+def generate_pkce_challange():
+    """Generates a code verifier and a code challenge for PKCE."""
+    code_verifier = secrets.token_urlsafe(64)
+    hashed = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    code_challenge = base64.urlsafe_b64encode(hashed).decode('utf-8').replace('=', '')
+    return code_verifier, code_challenge
 
-    params = {
-        "client_id": client_id,
-        "response_type": "code",
-        "redirect_uri": redirect_uri,
-        "token_access_type": "offline",
+def get_refresh_token(app_key: str):
+    """
+    Guides the user through the Dropbox OAuth2 PKCE flow to get a refresh token.
+    The token is saved to a file.
+    """
+    code_verifier, code_challenge = generate_pkce_challange()
+
+    auth_params = {
+        'client_id': app_key,
+        'response_type': 'code',
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
+        'token_access_type': 'offline',
     }
+    auth_url = "https://www.dropbox.com/oauth2/authorize?" + urllib.parse.urlencode(auth_params)
 
-    auth_url = "https://www.dropbox.com/oauth2/authorize?" + urllib.parse.urlencode(params)
-    print(auth_url)
-
-    server, thread = run_server_in_thread()
-    print("Server started, waiting for request...")
-
+    print("--- Dropbox Authorization ---")
+    print("\n1. A browser window will open. Please authorize the application.")
+    print("\n2. After authorization, you will be redirected to a blank page.")
+    print("   Copy the FULL URL from your browser's address bar.\n")
+    
     webbrowser.open(auth_url)
 
-    thread.join(timeout=160)
-    if server.auth_code:
-        code = server.auth_code
-        print("Code received:", server.auth_code)
+    redirect_url_str = input("3. Paste the full redirect URL here and press Enter:\n")
+
+    try:
+        # Instead of running a server, we parse the code from the URL the user pastes.
+        parsed_url = urllib.parse.urlparse(redirect_url_str)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        auth_code = query_params.get('code', [None])[0]
+
+        if not auth_code:
+            print("\nError: Could not find 'code' in the provided URL.")
+            return
+
+        # --- Exchange authorization code for a refresh token ---
+        token_params = {
+            'grant_type': 'authorization_code',
+            'code': auth_code,
+            'client_id': app_key,
+            'code_verifier': code_verifier,
+        }
+        
+        response = requests.post("https://api.dropboxapi.com/oauth2/token", data=token_params)
+        response.raise_for_status() # Raise an exception for bad status codes
+
+        token_data = response.json()
+        refresh_token = token_data.get('refresh_token')
+
+        if refresh_token:
+            # Save the token to the file
+            with open(TOKEN_STORAGE_FILE, "w") as f:
+                f.write(refresh_token)
+            print(f"\n✅ Success! Refresh token has been saved to '{TOKEN_STORAGE_FILE}'.")
+            print("You can now run the main application.")
+        else:
+            print("\n❌ Error: Did not receive a refresh token from Dropbox.")
+            print("Response:", token_data)
+
+    except requests.exceptions.RequestException as e:
+        print(f"\n❌ An error occurred during the token exchange: {e}")
+        print("Response body:", e.response.text if e.response else "N/A")
+    except (KeyError, IndexError):
+        print("\n❌ Error: The pasted URL does not seem to be a valid Dropbox redirect.")
+    except Exception as e:
+        print(f"\n❌ An unexpected error occurred: {e}")
+
+if __name__ == '__main__':
+    # We can run this script directly to perform authorization
+    app_key = settings.DROPBOX_APP_KEY
+    if not app_key or "YOUR_APP_KEY" in app_key:
+        print("Error: `DROPBOX_APP_KEY` is not configured in your .env file.")
+        print("Please copy .env.example to .env and fill in your Dropbox App Key.")
     else:
-        print("Code was not received.")
-
-    if code: 
-        token_data = exchange_code_for_token(client_id, client_secret, code, redirect_uri)
-
-        if token_data:
-            print("\nSave the following data for use in your scripts:")
-            print("Access Token:", token_data['access_token'])
-            print("Refresh Token:", token_data['refresh_token'])
+        get_refresh_token(app_key)

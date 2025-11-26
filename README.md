@@ -10,7 +10,7 @@ The application watches a specified Dropbox folder for new PDF exports, processe
 - **Dropbox Integration**: Seamlessly uses Dropbox for both input and output of files.
 - **AI-Powered**: Leverages large vision models (like Gemini) for high-accuracy handwriting recognition.
 - **Containerized**: Packaged with Docker and Docker Compose for easy, one-command deployment.
-- **Scheduled & On-Demand**: Runs automatically on a `cron` schedule and supports on-demand single runs for debugging.
+- **Continuous & On-Demand**: Runs as a continuous service that watches for files and will support on-demand single runs for debugging.
 - **Robust Error Handling**:
     - Distinguishes between transient (network) and permanent (bad file) errors.
     - Automatically quarantines files that fail processing into a `/failed_files` folder.
@@ -41,7 +41,7 @@ The application is configured using environment variables.
         - Find the "App key" and "App secret" in your app's **Settings** tab.
 
     - `DROPBOX_REFRESH_TOKEN`:
-        - This is a long-lived token that you only need to generate once using the included utility script. See the section below.
+        - This is a long-lived token that you only need to generate once. See the section below.
 
     - `OPENAI_API_KEY`:
         - Get this from your AI provider's dashboard (e.g., [OpenAI API Keys](https://platform.openai.com/api-keys)).
@@ -51,12 +51,15 @@ The application is configured using environment variables.
 
 ### How to Get a Dropbox Refresh Token
 
-The `auth.py` script is a one-time utility to get your refresh token.
+You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token for you.
 
-1.  **Temporarily Edit `auth.py`**: Open `auth.py` and paste your App Key and App Secret into the `client_id` and `client_secret` variables at the bottom of the file.
-2.  **Run the Script**: Execute `python auth.py` in your terminal.
+1.  **Run the authorization utility**:
+    ```shell
+    docker-compose run --rm app python auth.py
+    ```
+2.  **Follow the prompts**: The script will print a URL. Copy and paste it into your browser.
 3.  **Authorize in Browser**: The script will open a browser window asking you to authorize your Dropbox app. Click "Allow".
-4.  **Copy the Token**: After authorization, the script will print the `Refresh Token` to your console. Copy this value and paste it into the `DROPBOX_REFRESH_TOKEN` field in your `.env` file.
+4.  **Token is Saved**: The script will automatically receive the token and save it to a file (`.dropbox.token`) that is read by the main application. You do not need to manually copy it into your `.env` file.
 
 ## Usage
 
@@ -84,11 +87,11 @@ When working on the application, you'll build and publish the Docker image to Do
     ```
     This will build the image `kokogen/remrec:v1.0.0` and push it to Docker Hub. If no tag is provided, it will use `latest`.
 
-### Running in Production (Cron Mode)
+### Running in Production (Continuous Mode)
 
 To deploy the application on your server, first ensure that the `.env` file on the server specifies the correct image tag (e.g., `REMREC_IMAGE_TAG=v1.0.0`).
 
-Then, pull the latest image and start the service in the background. The `cron` job inside the container will then trigger the processing script on its schedule (default: every 5 minutes).
+Then, pull the latest image and start the service in the background. The application runs in a continuous loop, watching for new files.
 
 ```shell
 docker-compose pull
@@ -97,7 +100,7 @@ docker-compose up -d
 
 ### Viewing Logs
 
-To see the live output of the application, including `cron` triggers and file processing logs:
+To see the live output of the application:
 
 ```shell
 docker-compose logs -f
@@ -105,7 +108,7 @@ docker-compose logs -f
 
 ### Running a One-Time Task (Debug Mode)
 
-To process all files in the source folder immediately, without waiting for `cron`, run the following command. This is useful for debugging or manual runs.
+To process all files in the source folder immediately, without waiting for the loop, run the following command. This is useful for debugging or manual runs.
 
 ```shell
 docker-compose run --rm app python main.py --run-once
@@ -132,7 +135,6 @@ docker-compose down
 - `exceptions.py`: Defines custom exceptions for error handling.
 - `Dockerfile`: Defines the application's container image.
 - `docker-compose.yml`: Defines how to run the application service.
-- `cronjob`: The cron task definition file.
 
 ## Testing
 
