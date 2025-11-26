@@ -4,10 +4,8 @@ dropbox
 openai
 pdf2image
 reportlab
-Pillow
 filelock
 pydantic-settings
 
 # Development tools
 ruff
-dotenv
