@@ -12,6 +12,8 @@ services:
     # Specify the file with environment variables (secrets)
     env_file:
       - .env
+    volumes:
+      - ./app.log:/app/app.log
       
     # Restart policy. 'unless-stopped' means the container
     # will automatically restart (e.g., after a server reboot)

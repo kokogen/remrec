@@ -9,19 +9,35 @@ from exceptions import PermanentError, TransientError
 from processing import process_single_file
 
 def setup_logging():
-    """Configures logging to file and console."""
-    # Ensure the log level is correct
+    """Configures logging to file and console explicitly."""
     log_level_name = settings.LOG_LEVEL.upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
 
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(settings.LOG_FILE),
-            logging.StreamHandler()  # For output to `docker logs`
-        ]
-    )
+    # Get the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    # Clear any existing handlers to prevent duplicate logs on re-runs or implicit configs
+    if root_logger.handlers:
+        for handler in root_logger.handlers:
+            root_logger.removeHandler(handler)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # Add StreamHandler (for console output)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    root_logger.addHandler(stream_handler)
+
+    # Add FileHandler
+    try:
+        file_handler = logging.FileHandler(settings.LOG_FILE)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+    except IOError as e:
+        # Log to console if file logging fails (e.g., permissions)
+        root_logger.error(f"Failed to set up file logging to {settings.LOG_FILE}: {e}")
+
     # Reducing "noise" from third-party libraries
     logging.getLogger("dropbox").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
