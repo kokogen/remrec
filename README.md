@@ -77,15 +77,17 @@ When working on the application, you'll build and publish the Docker image to Do
     (You may need to run `docker logout` first if you encounter issues)
 
 2.  **Build and Push the Image:**
-    Use the provided script to build and push the Docker image to your private Docker Hub repository. You can specify a tag for versioning (e.g., `v1.0.0`) or let it default to `latest`.
+    Use the provided script to build and push the Docker image to your private Docker Hub repository. By default, the script automatically determines the image tag based on the latest Git tag or short commit hash. You only need to specify a tag manually for specific versioning needs (e.g., overriding the auto-generated tag).
+    
+    To build and push using the auto-generated tag:
     ```bash
-    ./build_and_push.sh [tag]
+    ./build_and_push.sh
     ```
-    Example:
+    To build and push with a specific manual tag:
     ```bash
     ./build_and_push.sh v1.0.0
     ```
-    This will build the image `kokogen/remrec:v1.0.0` and push it to Docker Hub. If no tag is provided, it will use `latest`.
+    This will build the image `kokogen/remrec:<tag>` and push it to Docker Hub.
 
 ### Running in Production (Continuous Mode)
 
