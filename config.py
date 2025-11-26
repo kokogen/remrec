@@ -41,18 +41,25 @@ class Settings(BaseSettings):
         """Load refresh token from file, falling back to environment variable."""
         token_file = self.BASE_DIR / TOKEN_STORAGE_FILE
         
+        refresh_token_from_file = None
         if token_file.is_file():
-            logging.info(f"Loading refresh token from file: {token_file}")
-            self.DROPBOX_REFRESH_TOKEN = token_file.read_text().strip()
-        
-        elif self.DROPBOX_REFRESH_TOKEN:
-             logging.warning("Loading refresh token from environment variable. Consider using the auth.py script for better security.")
+            content = token_file.read_text().strip()
+            if content: # Only load if file is not empty
+                refresh_token_from_file = content
+                logging.info(f"Loading refresh token from file: {token_file}")
+            else:
+                logging.warning(f"Dropbox token file '{TOKEN_STORAGE_FILE}' exists but is empty. Checking environment variable.")
 
+        if refresh_token_from_file:
+            self.DROPBOX_REFRESH_TOKEN = refresh_token_from_file
+        elif self.DROPBOX_REFRESH_TOKEN: # Already set from .env
+             logging.warning("Loading refresh token from environment variable. Consider using the auth.py script for better security.")
+        
         if not self.DROPBOX_REFRESH_TOKEN:
             raise ValueError(
                 "Dropbox refresh token not found. "
-                f"Please run 'python auth.py' to generate it and save it to '{TOKEN_STORAGE_FILE}', "
-                "or set DROPBOX_REFRESH_TOKEN in your .env file."
+                f"Please run 'python auth.py' to generate it and save it to '{TOKEN_STORAGE_FILE}' "
+                "or ensure DROPBOX_REFRESH_TOKEN is set in your .env file."
             )
         return self
 
