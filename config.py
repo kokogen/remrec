@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         """Load refresh token from file, falling back to environment variable."""
         token_file = self.BASE_DIR / TOKEN_STORAGE_FILE
         
-        if token_file.exists():
+        if token_file.is_file():
             logging.info(f"Loading refresh token from file: {token_file}")
             self.DROPBOX_REFRESH_TOKEN = token_file.read_text().strip()
         
