@@ -18,7 +18,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
     LOG_LEVEL: str = "INFO"
-    DROPBOX_REFRESH_TOKEN: Optional[str] = None
+    # The two potential sources for the refresh token. The application logic will decide the priority.
+    DROPBOX_REFRESH_TOKEN_ENV: Optional[str] = Field(None, alias='DROPBOX_REFRESH_TOKEN')
+    DROPBOX_REFRESH_TOKEN_FILE: Optional[str] = None
 
     # --- Dropbox Paths (must be set in .env) ---
     DROPBOX_SOURCE_DIR: str
@@ -36,32 +38,17 @@ class Settings(BaseSettings):
     # --- Constants and Computed Paths ---
     BASE_DIR: Path = Path(__file__).resolve().parent
     
-    @model_validator(mode='after')
-    def load_refresh_token(self) -> 'Settings':
-        """Load refresh token from file, falling back to environment variable."""
+    def model_post_init(self, __context):
+        """
+        After initial settings are loaded from the environment,
+        try to load a refresh token from the local token file as a fallback.
+        """
         token_file = self.BASE_DIR / TOKEN_STORAGE_FILE
-        
-        refresh_token_from_file = None
         if token_file.is_file():
             content = token_file.read_text().strip()
-            if content: # Only load if file is not empty
-                refresh_token_from_file = content
-                logging.info(f"Loading refresh token from file: {token_file}")
-            else:
-                logging.warning(f"Dropbox token file '{TOKEN_STORAGE_FILE}' exists but is empty. Checking environment variable.")
-
-        if refresh_token_from_file:
-            self.DROPBOX_REFRESH_TOKEN = refresh_token_from_file
-        elif self.DROPBOX_REFRESH_TOKEN: # Already set from .env
-             logging.warning("Loading refresh token from environment variable. Consider using the auth.py script for better security.")
-        
-        if not self.DROPBOX_REFRESH_TOKEN:
-            raise ValueError(
-                "Dropbox refresh token not found. "
-                f"Please run 'python auth.py' to generate it and save it to '{TOKEN_STORAGE_FILE}' "
-                "or ensure DROPBOX_REFRESH_TOKEN is set in your .env file."
-            )
-        return self
+            if content:
+                self.DROPBOX_REFRESH_TOKEN_FILE = content
+                logging.info(f"Found refresh token in file: {token_file}")
 
     @property
     def LOCAL_BUF_DIR(self) -> Path:

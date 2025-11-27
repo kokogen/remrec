@@ -43,11 +43,42 @@ def setup_logging():
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 def main_workflow():
-
     logging.info("Starting workflow...")
     
-    dbx = DropboxClient(settings.DROPBOX_APP_KEY, settings.DROPBOX_APP_SECRET, settings.DROPBOX_REFRESH_TOKEN)
+    dbx = None
     
+    # --- Smart Dropbox Client Initialization ---
+    # 1. Try to use the token from the environment variable (primary for production)
+    if settings.DROPBOX_REFRESH_TOKEN_ENV:
+        try:
+            logging.info("Attempting to connect to Dropbox using token from environment variable...")
+            dbx = DropboxClient(
+                app_key=settings.DROPBOX_APP_KEY,
+                app_secret=settings.DROPBOX_APP_SECRET,
+                refresh_token=settings.DROPBOX_REFRESH_TOKEN_ENV
+            )
+        except Exception:
+            logging.warning("Failed to connect using token from environment variable. It might be invalid or expired.")
+            dbx = None # Explicitly set to None on failure
+
+    # 2. If the first attempt failed or was skipped, try the token from the file (fallback for local dev)
+    if dbx is None and settings.DROPBOX_REFRESH_TOKEN_FILE:
+        try:
+            logging.info("Attempting to connect to Dropbox using token from '.dropbox.token' file...")
+            dbx = DropboxClient(
+                app_key=settings.DROPBOX_APP_KEY,
+                app_secret=settings.DROPBOX_APP_SECRET,
+                refresh_token=settings.DROPBOX_REFRESH_TOKEN_FILE
+            )
+        except Exception as e:
+            logging.error(f"Failed to connect using token from file. Error: {e}", exc_info=True)
+            dbx = None
+
+    # 3. If both attempts failed, exit the workflow for this run.
+    if dbx is None:
+        logging.critical("Could not establish a connection to Dropbox. Both environment variable and token file methods failed or were not configured.")
+        return # Stop the workflow for this cycle
+
     # Check/create necessary folders in Dropbox
     for folder in [settings.DROPBOX_SOURCE_DIR, settings.DROPBOX_DEST_DIR]:
         # The root folder ("") always exists and doesn't need to be created.
