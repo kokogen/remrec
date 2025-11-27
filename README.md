@@ -58,14 +58,14 @@ All commands should be run from the root of the project directory.
 
 The Docker image is now automatically built and pushed to Docker Hub by a GitHub Actions workflow.
 
--   **Trigger:** The workflow runs automatically on pushes to the `github-actions` branch (our development branch for CI/CD experiments) or when a new version tag (e.g., `v1.2.3`) is pushed to any branch.
+-   **Trigger:** The workflow runs automatically only when a new version tag (e.g., `v1.2.3`) is pushed to any branch.
 -   **Workflow File:** `.github/workflows/build-and-push.yml`
--   **Image Naming:** The image is tagged intelligently based on the Git branch/tag.
+-   **Image Naming:** The image is tagged intelligently based on the Git tag.
 -   **Secrets:** Docker Hub credentials and API keys are securely managed via GitHub Secrets.
 
 To trigger a build and push:
-1.  Push changes to the `github-actions` branch.
-2.  Alternatively, create and push a new Git tag (e.g., `git tag v1.0.0 && git push origin v1.0.0`).
+1.  Create and push a new Git tag (e.g., `git tag v1.0.0 && git push origin v1.0.0`).
+    *Note: Pushing to the `github-actions` branch will no longer trigger a build.*
 
 ### Running in Production (Continuous Mode)
 

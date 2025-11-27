@@ -3,8 +3,6 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches:
-      - 'github-actions' # Trigger on pushes to our long-lived experiment branch
     tags:
       - 'v*.*.*' # Trigger on new version tags
   workflow_dispatch: # Allow manual triggering

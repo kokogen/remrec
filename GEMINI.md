@@ -79,11 +79,11 @@ The application is configured using environment variables. Secret variables are 
 
 The Docker image is now automatically built and pushed to Docker Hub by a GitHub Actions workflow.
 
+-   **Trigger:** The workflow runs automatically only when a new version tag (e.g., `v1.2.3`) is pushed to any branch.
 -   **Workflow File:** `.github/workflows/build-and-push.yml`
--   **Trigger:** The workflow runs automatically on pushes to the `github-actions` branch (our development branch for CI/CD experiments) or when a new version tag (e.g., `v1.2.3`) is pushed to any branch.
--   **Image Naming:** The image is tagged intelligently based on the Git branch/tag.
+-   **Image Naming:** The image is tagged intelligently based on the Git tag.
 -   **Secrets:** Docker Hub credentials and API keys are securely managed via GitHub Secrets.
--   **Manual Build/Push:** The `build_and_push.sh` script has been removed. Local builds/pushes are not the primary workflow; use GitHub Actions.
+-   **Manual Build/Push:** The `build_and_push.sh` script has been removed. Local builds/pushes are not the primary workflow; use GitHub Actions. To trigger a build, create and push a new Git tag (e.g., `git tag v1.0.0 && git push origin v1.0.0`).
 
 ### Running the Service
 To run the application in its standard, continuous-loop mode:
