@@ -10,7 +10,7 @@ TOKEN_STORAGE_FILE = ".dropbox.token"
 class Settings(BaseSettings):
     """
     Centralized application configuration with type validation.
-    Automatically reads variables from a .env file and the token file.
+    Automatically reads variables from the environment and the token file.
     """
     # --- Secrets from .env ---
     DROPBOX_APP_KEY: str
@@ -75,8 +75,6 @@ class Settings(BaseSettings):
     def LOG_FILE(self) -> Path:
         return self.BASE_DIR / "app.log"
 
-    # Pydantic configuration to read from the .env file
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra='ignore')
 
 # Create a single settings instance for the entire application
 settings = Settings()

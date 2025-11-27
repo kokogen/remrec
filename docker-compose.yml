@@ -9,9 +9,6 @@ services:
     # The name of the image that will be built
     image: kokogen/remrec:${REMREC_IMAGE_TAG:-latest}
     
-    # Specify the file with environment variables (secrets)
-    env_file:
-      - .env
     volumes:
       - ./app.log:/app/app.log
       - ./.dropbox.token:/app/.dropbox.token
