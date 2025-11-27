@@ -21,88 +21,73 @@ The application watches a specified Dropbox folder for new PDF exports, processe
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
 
-## Configuration
+## Configuration for Local Use
 
-The application is configured using environment variables. Secret variables are managed via GitHub Secrets in the CI/CD pipeline and should *not* be in your local `.env` file.
+To run this application on your own machine, you'll need to provide your credentials and settings via an environment file.
 
-1.  **Create/Update a `.env` file**:
-    The `.env` file is now part of version control and contains non-secret application settings. Ensure your local `.env` is up-to-date with the latest version from the repository.
+1.  **Create an `.env` file**:
+    Copy the provided example file to a new file named `.env`. This file is ignored by Git and will contain your secrets.
+    ```shell
+    cp .env.example .env
+    ```
 
-2.  **GitHub Secrets**:
-    The following secret variables must be configured in your GitHub repository's `Settings > Secrets and variables > Actions`:
+2.  **Fill in your `.env` file**:
+    Open the newly created `.env` file and provide your credentials for the following variables:
     *   `DROPBOX_APP_KEY`
     *   `DROPBOX_APP_SECRET`
     *   `OPENAI_API_KEY`
-    *   `DOCKER_USERNAME` (Your Docker Hub username)
-    *   `DOCKER_HUB_ACCESS_TOKEN` (A Personal Access Token for Docker Hub with push/pull access)
-    
+    You can also customize other non-secret settings in this file if needed.
+
 3.  **Generate a Dropbox Refresh Token**:
-    You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token to `.dropbox.token` on your local machine. This `.dropbox.token` file is automatically mounted into the container.
-    
+    Run the interactive `auth.py` script to generate your Dropbox refresh token.
     ```shell
     docker-compose run --rm app python auth.py
     ```
-    Follow the prompts:
-    *   The script will print a URL. Copy and paste it into your browser.
-    *   Authorize in Browser: Click "Allow".
-    *   Copy the FULL URL from your browser's address bar.
-    *   Paste the full redirect URL back into your terminal.
-    
-    The token will be saved to `./.dropbox.token`.
+    Follow the on-screen prompts. This will create a `.dropbox.token` file in your project root, which is automatically used by the application.
 
-## Usage
+## Running the Service Locally
 
-All commands should be run from the root of the project directory.
+The easiest way to run the service on your local machine is with the `deploy-local.sh` script.
 
-### Automated CI/CD: Build and Publish Docker Image (GitHub Actions)
+1.  **Find an Image Tag:** Find the latest version tag to use from the project's Docker Hub or Git repository.
+2.  **Run the Script:** Execute the script with the desired tag.
+    ```shell
+    ./deploy-local.sh v1.2.4
+    ```
+This script will automatically:
+- Check for the required `.env` file.
+- Update the image tag in your `.env` file.
+- Pull the specified Docker image from Docker Hub.
+- Start the service in the background using `docker-compose up -d`.
 
-The Docker image is now automatically built and pushed to Docker Hub by a GitHub Actions workflow.
+### Other Useful Commands
 
--   **Trigger:** The workflow runs automatically only when a new version tag (e.g., `v1.2.3`) is pushed to any branch.
+-   **Viewing Logs:**
+    ```shell
+    docker-compose logs -f
+    ```
+-   **Running a One-Time Task (Debug Mode):**
+    ```shell
+    docker-compose run --rm app python main.py --run-once
+    ```
+-   **Stopping the Application:**
+    ```shell
+    docker-compose down
+    ```
+
+---
+
+## Developer & CI/CD Information
+
+### Automated CI/CD (GitHub Actions)
+
+The Docker image is automatically built and pushed to Docker Hub by a GitHub Actions workflow.
+
+-   **Trigger:** The workflow runs automatically only when a new version tag (e.g., `v1.2.3`) is pushed to the repository.
 -   **Workflow File:** `.github/workflows/build-and-push.yml`
--   **Image Naming:** The image is tagged intelligently based on the Git tag.
--   **Secrets:** Docker Hub credentials and API keys are securely managed via GitHub Secrets.
 
-To trigger a build and push:
-1.  Create and push a new Git tag (e.g., `git tag v1.0.0 && git push origin v1.0.0`).
-    *Note: Pushing to the `github-actions` branch will no longer trigger a build.*
-
-### Running in Production (Continuous Mode)
-
-To deploy the application on your server, first ensure that the `.env` file on the server specifies the correct image tag (e.g., `REMREC_IMAGE_TAG=v1.0.0`).
-
-Then, pull the latest image and start the service in the background. The application runs in a continuous loop, watching for new files.
-
-```shell
-docker-compose pull
-docker-compose up -d
-```
-
-### Viewing Logs
-
-To see the live output of the application:
-
-```shell
-docker-compose logs -f
-```
-
-### Running a One-Time Task (Debug Mode)
-
-To process all files in the source folder immediately, without waiting for the loop, run the following command. This is useful for debugging or manual runs.
-
-```shell
-docker-compose run --rm app python main.py --run-once
-```
-- `run`: Executes a one-off command in a service container.
-- `--rm`: Automatically removes the container after the command completes.
-
-### Stopping the Application
-
-To stop the application and remove the container:
-
-```shell
-docker-compose down
-```
+### Remote Deployment (Synology)
+The `deploy.sh` script is designed for deploying the application to a remote server, such as a Synology NAS. It requires manual configuration of SSH details within the script.
 
 ## Project Structure
 
