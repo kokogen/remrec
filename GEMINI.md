@@ -51,15 +51,39 @@ The architecture is modular, with clear separation of concerns, and it relies on
 
 ## Building and Running
 
-All commands should be run from the project root directory.
-
 ### Configuration
-1.  Copy `.env.example` to a new `.env` file: `cp .env.example .env`.
-2.  Fill in `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, and `OPENAI_API_KEY`.
-3.  Generate the Dropbox refresh token by running the interactive auth script:
+The application is configured using environment variables. Secret variables are managed via GitHub Secrets in the CI/CD pipeline and should *not* be in your local `.env` file.
+
+1.  **`.env` file**: The `.env` file is now part of version control and contains non-secret application settings. Ensure your local `.env` is up-to-date with the latest version from the repository.
+
+2.  **GitHub Secrets**: The following secret variables must be configured in your GitHub repository's `Settings > Secrets and variables > Actions`:
+    *   `DROPBOX_APP_KEY`
+    *   `DROPBOX_APP_SECRET`
+    *   `OPENAI_API_KEY`
+    *   `DOCKER_USERNAME` (Your Docker Hub username)
+    *   `DOCKER_HUB_ACCESS_TOKEN` (A Personal Access Token for Docker Hub with push/pull access)
+
+3.  **Generate a Dropbox Refresh Token**: You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token to `.dropbox.token` on your local machine. This `.dropbox.token` file is automatically mounted into the container.
     ```bash
     docker-compose run --rm app python auth.py
     ```
+    Follow the prompts:
+    *   The script will print a URL. Copy and paste it into your browser.
+    *   Authorize in Browser: Click "Allow".
+    *   Copy the FULL URL from your browser's address bar.
+    *   Paste the full redirect URL back into your terminal.
+    
+    The token will be saved to `./.dropbox.token`.
+
+### Automated CI/CD: Build and Push Docker Image (GitHub Actions)
+
+The Docker image is now automatically built and pushed to Docker Hub by a GitHub Actions workflow.
+
+-   **Workflow File:** `.github/workflows/build-and-push.yml`
+-   **Trigger:** The workflow runs automatically on pushes to the `github-actions` branch (our development branch for CI/CD experiments) or when a new version tag (e.g., `v1.2.3`) is pushed to any branch.
+-   **Image Naming:** The image is tagged intelligently based on the Git branch/tag.
+-   **Secrets:** Docker Hub credentials and API keys are securely managed via GitHub Secrets.
+-   **Manual Build/Push:** The `build_and_push.sh` script has been removed. Local builds/pushes are not the primary workflow; use GitHub Actions.
 
 ### Running the Service
 To run the application in its standard, continuous-loop mode:

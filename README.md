@@ -23,71 +23,49 @@ The application watches a specified Dropbox folder for new PDF exports, processe
 
 ## Configuration
 
-The application is configured using environment variables.
+The application is configured using environment variables. Secret variables are managed via GitHub Secrets in the CI/CD pipeline and should *not* be in your local `.env` file.
 
-1.  **Create a `.env` file**:
-    Copy the provided example file to a new file named `.env`.
-    ```shell
-    cp .env.example .env
-    ```
+1.  **Create/Update a `.env` file**:
+    The `.env` file is now part of version control and contains non-secret application settings. Ensure your local `.env` is up-to-date with the latest version from the repository.
 
-2.  **Fill in the `.env` file**:
-    Open the `.env` file and provide your credentials and settings.
-
-    - `DROPBOX_APP_KEY` & `DROPBOX_APP_SECRET`:
-        - Go to the [Dropbox App Console](https://www.dropbox.com/developers/apps).
-        - Create a new app with "Scoped access".
-        - Ensure your app has the following permissions: `files.content.write`, `files.content.read`, `files.metadata.read`.
-        - Find the "App key" and "App secret" in your app's **Settings** tab.
-
-    - `DROPBOX_REFRESH_TOKEN`:
-        - This is a long-lived token that you only need to generate once. See the section below.
-
-    - `OPENAI_API_KEY`:
-        - Get this from your AI provider's dashboard (e.g., [OpenAI API Keys](https://platform.openai.com/api-keys)).
-
-    - `OPENAI_BASE_URL`:
-        - The base URL for the recognition API. If you are using a proxy, enter it here. For connecting directly to OpenAI, use `https://api.openai.com/v1`.
-
-### How to Get a Dropbox Refresh Token
-
-You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token for you.
-
-1.  **Run the authorization utility**:
+2.  **GitHub Secrets**:
+    The following secret variables must be configured in your GitHub repository's `Settings > Secrets and variables > Actions`:
+    *   `DROPBOX_APP_KEY`
+    *   `DROPBOX_APP_SECRET`
+    *   `OPENAI_API_KEY`
+    *   `DOCKER_USERNAME` (Your Docker Hub username)
+    *   `DOCKER_HUB_ACCESS_TOKEN` (A Personal Access Token for Docker Hub with push/pull access)
+    
+3.  **Generate a Dropbox Refresh Token**:
+    You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token to `.dropbox.token` on your local machine. This `.dropbox.token` file is automatically mounted into the container.
+    
     ```shell
     docker-compose run --rm app python auth.py
     ```
-2.  **Follow the prompts**: The script will print a URL. Copy and paste it into your browser.
-3.  **Authorize in Browser**: The script will open a browser window asking you to authorize your Dropbox app. Click "Allow".
-4.  **Token is Saved**: The script will automatically receive the token and save it to a file (`.dropbox.token`) that is read by the main application. You do not need to manually copy it into your `.env` file.
+    Follow the prompts:
+    *   The script will print a URL. Copy and paste it into your browser.
+    *   Authorize in Browser: Click "Allow".
+    *   Copy the FULL URL from your browser's address bar.
+    *   Paste the full redirect URL back into your terminal.
+    
+    The token will be saved to `./.dropbox.token`.
 
 ## Usage
 
 All commands should be run from the root of the project directory.
 
-### Development Workflow: Build and Publish Docker Image
+### Automated CI/CD: Build and Publish Docker Image (GitHub Actions)
 
-When working on the application, you'll build and publish the Docker image to Docker Hub from your local development machine. This image will then be pulled by the deployment server.
+The Docker image is now automatically built and pushed to Docker Hub by a GitHub Actions workflow.
 
-1.  **Log in to Docker Hub:**
-    Ensure you are logged into Docker Hub on your development machine:
-    ```bash
-    docker login
-    ```
-    (You may need to run `docker logout` first if you encounter issues)
+-   **Trigger:** The workflow runs automatically on pushes to the `github-actions` branch (our development branch for CI/CD experiments) or when a new version tag (e.g., `v1.2.3`) is pushed to any branch.
+-   **Workflow File:** `.github/workflows/build-and-push.yml`
+-   **Image Naming:** The image is tagged intelligently based on the Git branch/tag.
+-   **Secrets:** Docker Hub credentials and API keys are securely managed via GitHub Secrets.
 
-2.  **Build and Push the Image:**
-    Use the provided script to build and push the Docker image to your private Docker Hub repository. By default, the script automatically determines the image tag based on the latest Git tag or short commit hash. You only need to specify a tag manually for specific versioning needs (e.g., overriding the auto-generated tag).
-    
-    To build and push using the auto-generated tag:
-    ```bash
-    ./build_and_push.sh
-    ```
-    To build and push with a specific manual tag:
-    ```bash
-    ./build_and_push.sh v1.0.0
-    ```
-    This will build the image `kokogen/remrec:<tag>` and push it to Docker Hub.
+To trigger a build and push:
+1.  Push changes to the `github-actions` branch.
+2.  Alternatively, create and push a new Git tag (e.g., `git tag v1.0.0 && git push origin v1.0.0`).
 
 ### Running in Production (Continuous Mode)
 

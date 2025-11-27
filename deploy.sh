@@ -24,16 +24,6 @@ echo "Target Synology: ${SYNOLOGY_USER}@${SYNOLOGY_HOST}"
 echo "Remote Project Path: ${REMOTE_PROJECT_PATH}"
 echo "Image Tag to Deploy: ${IMAGE_TAG}"
 
-# Check if local .env file exists
-if [ ! -f .env ]; then
-    echo "Local .env file not found. Please ensure it exists in the project root."
-    exit 1
-fi
-
-echo "Copying local .env file to Synology..."
-cat .env | ssh -p 22222 "${SYNOLOGY_USER}@${SYNOLOGY_HOST}" "cat > ${REMOTE_PROJECT_PATH}/.env"
-echo ".env file copied successfully."
-
 # Check if local docker-compose.yml file exists
 if [ ! -f docker-compose.yml ]; then
     echo "Local docker-compose.yml file not found. Please ensure it exists in the project root."
@@ -73,13 +63,15 @@ SSH_COMMANDS=$(cat <<EOF
     fi
     echo "Using docker-compose command: \${DOCKER_COMPOSE_CMD}"
 
-    # Update the REMREC_IMAGE_TAG in the .env file
+    # Check for .env file on remote and update the REMREC_IMAGE_TAG
     if [ -f .env ]; then
         echo "Updating REMREC_IMAGE_TAG in .env on Synology..."
+        # Use a temporary file for sed to be compatible with more systems
         sed -i'' -e "s/^REMREC_IMAGE_TAG=.*$/REMREC_IMAGE_TAG=${IMAGE_TAG}/g" .env
     else
-        echo ".env file not found on Synology at ${REMOTE_PROJECT_PATH}. Creating a new one."
-        echo "REMREC_IMAGE_TAG=${IMAGE_TAG}" > .env
+        echo "ERROR: .env file not found on Synology at ${REMOTE_PROJECT_PATH}." >&2
+        echo "Please create it manually on the server with all required secrets before deploying." >&2
+        exit 1
     fi
 
     echo "Pulling Docker image: kokogen/remrec:${IMAGE_TAG}..."
