@@ -9,7 +9,7 @@ from config import settings
 from dbox import DropboxClient
 from exceptions import PermanentError, TransientError
 from recognition import image_to_base64, recognize
-from pdf_utils import txt_to_pdf_line_by_line
+from pdf_utils import create_reflowed_pdf
 
 def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.FileMetadata):
     """
@@ -60,7 +60,7 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
         full_text = "\n\n".join(recognized_texts)
 
         # 4. Create a result PDF from the text
-        txt_to_pdf_line_by_line(full_text, result_pdf_path)
+        create_reflowed_pdf(full_text, result_pdf_path)
 
         # 5. Upload the result to Dropbox
         try:
