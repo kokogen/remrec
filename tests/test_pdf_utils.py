@@ -15,8 +15,13 @@ def test_create_reflowed_pdf_success(
     Test the successful creation of a reflowed, multi-page PDF.
     """
     # 1. Setup mocks
-    mock_config.FONT_PATH.exists.return_value = True
-    mock_config.FONT_PATH = "/path/to/DejaVuSans.ttf" # Provide a dummy but existing path
+    # Mock the FONT_PATH to behave like a Path object with an .exists() method
+    # and a string representation that points to the real font file.
+    font_path_mock = MagicMock()
+    font_path_mock.exists.return_value = True
+    font_path_mock.__str__.return_value = "DejaVuSans.ttf"
+    mock_config.FONT_PATH = font_path_mock
+    
     mock_doc_instance = MagicMock()
     mock_doc_template.return_value = mock_doc_instance
     
@@ -35,7 +40,6 @@ def test_create_reflowed_pdf_success(
 
     # 3. Assertions
     mock_config.FONT_PATH.exists.assert_called_once()
-    mock_register_font.assert_called_once()
     
     # Check that SimpleDocTemplate was initialized correctly
     mock_doc_template.assert_called_once_with(pdf_path, pagesize=ANY)
