@@ -39,6 +39,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           
+      - name: Lint and Format Check
+        run: |
+          pip install ruff
+          ruff check .
+          ruff format --check .
+          
       - name: Run tests with pytest
         run: |
           python -m pytest
