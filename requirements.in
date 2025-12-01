@@ -9,3 +9,4 @@ pydantic-settings
 
 # Development tools
 ruff
+pytest

@@ -36,16 +36,22 @@ idna==3.11
     #   anyio
     #   httpx
     #   requests
+iniconfig==2.3.0
+    # via pytest
 jiter==0.12.0
     # via openai
 openai==2.8.1
     # via -r requirements.in
+packaging==25.0
+    # via pytest
 pdf2image==1.17.0
     # via -r requirements.in
 pillow==12.0.0
     # via
     #   pdf2image
     #   reportlab
+pluggy==1.6.0
+    # via pytest
 ply==3.11
     # via stone
 pydantic==2.12.4
@@ -55,6 +61,10 @@ pydantic==2.12.4
 pydantic-core==2.41.5
     # via pydantic
 pydantic-settings==2.12.0
+    # via -r requirements.in
+pygments==2.19.2
+    # via pytest
+pytest==9.0.1
     # via -r requirements.in
 python-dotenv==1.2.1
     # via
