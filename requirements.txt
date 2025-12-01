@@ -66,6 +66,7 @@ pygments==2.19.2
     # via pytest
 pytest==9.0.1
     # via -r requirements.in
+pytest-cov==5.0.0
 python-dotenv==1.2.1
     # via
     #   -r requirements.in
