@@ -7,17 +7,16 @@ from pdf_utils import create_reflowed_pdf
 
 # We need to mock the classes from reportlab that are used in the function
 @patch('pdf_utils.settings')
-@patch('pdf_utils.pdfmetrics.registerFont')
-@patch('pdf_utils.TTFont')
 @patch('pdf_utils.SimpleDocTemplate')
 def test_create_reflowed_pdf_success(
-    mock_doc_template, mock_ttfont, mock_register_font, mock_config
+    mock_doc_template, mock_config
 ):
     """
     Test the successful creation of a reflowed, multi-page PDF.
     """
     # 1. Setup mocks
     mock_config.FONT_PATH.exists.return_value = True
+    mock_config.FONT_PATH = "/path/to/DejaVuSans.ttf" # Provide a dummy but existing path
     mock_doc_instance = MagicMock()
     mock_doc_template.return_value = mock_doc_instance
     

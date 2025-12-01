@@ -25,7 +25,7 @@ def mock_file_entry():
 # Патчим все внешние зависимости модуля processing
 @patch('processing.os.remove')
 @patch('processing.os.path.exists', return_value=True)
-@patch('processing.txt_to_pdf_line_by_line')
+@patch('processing.create_reflowed_pdf')
 @patch('processing.recognize')
 @patch('processing.image_to_base64', return_value="fake_base64")
 @patch('processing.convert_from_path')
