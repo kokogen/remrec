@@ -10,7 +10,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    environment: main # Explicitly link to the 'main' environment for secrets/variables access
+    env:
+      # Provide dummy values for all required env vars to allow Pydantic to initialize
+      # The actual tests are mocked and do not use these values.
+      DROPBOX_APP_KEY: "dummy_key"
+      DROPBOX_APP_SECRET: "dummy_secret"
+      OPENAI_API_KEY: "dummy_key"
+      OPENAI_BASE_URL: "https://localhost"
+      DROPBOX_REFRESH_TOKEN: "dummy_token"
+      DROPBOX_SOURCE_DIR: "/source"
+      DROPBOX_DEST_DIR: "/dest"
+      DROPBOX_FAILED_DIR: "/failed"
+      RECOGNITION_MODEL: "dummy_model"
+      RECOGNITION_PROMPT: "dummy_prompt"
+      PDF_DPI: "200"
+      LOOP_SLEEP_SECONDS: "120"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
