@@ -4,23 +4,27 @@ from dropbox.files import WriteMode
 from dropbox.exceptions import ApiError
 import logging
 
+
 class DropboxClient:
     """
     Client for interacting with the Dropbox API using the official SDK.
     Automatically manages token refreshes.
     """
+
     def __init__(self, app_key, app_secret, refresh_token):
         try:
             self.dbx = dropbox.Dropbox(
                 app_key=app_key,
                 app_secret=app_secret,
-                oauth2_refresh_token=refresh_token
+                oauth2_refresh_token=refresh_token,
             )
             # Verify successful authentication by requesting current user info
             self.dbx.users_get_current_account()
             logging.info("Dropbox client initialized successfully.")
         except Exception as e:
-            logging.error(f"Failed to initialize Dropbox client. Check your credentials. Error: {e}")
+            logging.error(
+                f"Failed to initialize Dropbox client. Check your credentials. Error: {e}"
+            )
             raise
 
     def list_files(self, path):
@@ -46,7 +50,9 @@ class DropboxClient:
         with open(local_path, "rb") as f:
             try:
                 logging.info(f"Uploading {local_path} to {dropbox_path}...")
-                self.dbx.files_upload(f.read(), dropbox_path, mode=WriteMode('overwrite'))
+                self.dbx.files_upload(
+                    f.read(), dropbox_path, mode=WriteMode("overwrite")
+                )
             except ApiError as e:
                 logging.error(f"Failed to upload file to '{dropbox_path}': {e}")
                 raise

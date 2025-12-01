@@ -6,87 +6,104 @@ from dropbox.files import ListFolderResult, FileMetadata
 
 from dbox import DropboxClient
 
-@patch('dbox.dropbox.Dropbox')
+
+@patch("dbox.dropbox.Dropbox")
 def test_dropbox_client_init_success(MockDropbox):
     """Тест успешной инициализации клиента."""
     # 1. Настройка
     mock_dbx_instance = MockDropbox.return_value
-    
+
     # 2. Вызов
-    client = DropboxClient('key', 'secret', 'token')
+    client = DropboxClient("key", "secret", "token")
 
     # 3. Проверки
-    MockDropbox.assert_called_once_with(app_key='key', app_secret='secret', oauth2_refresh_token='token')
+    MockDropbox.assert_called_once_with(
+        app_key="key", app_secret="secret", oauth2_refresh_token="token"
+    )
     mock_dbx_instance.users_get_current_account.assert_called_once()
     assert client.dbx == mock_dbx_instance
 
-@patch('dbox.dropbox.Dropbox', side_effect=Exception("Auth failed"))
+
+@patch("dbox.dropbox.Dropbox", side_effect=Exception("Auth failed"))
 def test_dropbox_client_init_failure(MockDropbox):
     """Тест неудачной инициализации клиента."""
     with pytest.raises(Exception, match="Auth failed"):
-        DropboxClient('key', 'secret', 'token')
+        DropboxClient("key", "secret", "token")
+
 
 @pytest.fixture
 def client():
     """Фикстура, которая создает экземпляр клиента с замоканным SDK."""
-    with patch('dbox.dropbox.Dropbox') as MockDropbox:
+    with patch("dbox.dropbox.Dropbox") as MockDropbox:
         mock_dbx_instance = MockDropbox.return_value
-        client_instance = DropboxClient('key', 'secret', 'token')
+        client_instance = DropboxClient("key", "secret", "token")
         # Сбрасываем счетчики вызовов после инициализации для чистоты тестов
         mock_dbx_instance.reset_mock()
         yield client_instance
 
+
 def test_list_files_success(client):
     """Тест успешного получения списка файлов."""
-    mock_result = ListFolderResult(entries=[FileMetadata(name='test.pdf')])
+    mock_result = ListFolderResult(entries=[FileMetadata(name="test.pdf")])
     client.dbx.files_list_folder.return_value = mock_result
-    
-    files = client.list_files('/some_path')
-    
-    client.dbx.files_list_folder.assert_called_once_with('/some_path')
+
+    files = client.list_files("/some_path")
+
+    client.dbx.files_list_folder.assert_called_once_with("/some_path")
     assert len(files) == 1
-    assert files[0].name == 'test.pdf'
+    assert files[0].name == "test.pdf"
+
 
 def test_list_files_api_error(client):
     """Тест ошибки API при получении списка файлов."""
     client.dbx.files_list_folder.side_effect = ApiError(None, None, None, None)
-    
-    files = client.list_files('/some_path')
-    
+
+    files = client.list_files("/some_path")
+
     assert files == []
+
 
 def test_download_file_success(client):
     """Тест успешной загрузки файла."""
-    client.download_file('/dbx_path', '/local_path')
-    client.dbx.files_download_to_file.assert_called_once_with('/local_path', '/dbx_path')
+    client.download_file("/dbx_path", "/local_path")
+    client.dbx.files_download_to_file.assert_called_once_with(
+        "/local_path", "/dbx_path"
+    )
+
 
 def test_download_file_api_error(client):
     """Тест ошибки API при скачивании файла."""
     client.dbx.files_download_to_file.side_effect = ApiError(None, None, None, None)
     with pytest.raises(ApiError):
-        client.download_file('/dbx_path', '/local_path')
+        client.download_file("/dbx_path", "/local_path")
+
 
 # Аналогичные тесты можно написать для upload_file, move_file, delete_file.
 # Для краткости добавим один пример для upload.
 
-@patch('builtins.open')
+
+@patch("builtins.open")
 def test_upload_file_success(mock_open, client):
     """Тест успешной выгрузки файла."""
     mock_file_handle = mock_open.return_value.__enter__.return_value
-    mock_file_handle.read.return_value = b'file_content'
+    mock_file_handle.read.return_value = b"file_content"
 
-    client.upload_file('/local_path', '/dbx_path')
+    client.upload_file("/local_path", "/dbx_path")
 
-    mock_open.assert_called_once_with('/local_path', 'rb')
-    client.dbx.files_upload.assert_called_once_with(b'file_content', '/dbx_path', mode=ANY)
+    mock_open.assert_called_once_with("/local_path", "rb")
+    client.dbx.files_upload.assert_called_once_with(
+        b"file_content", "/dbx_path", mode=ANY
+    )
+
 
 def test_delete_file_success(client):
     """Тест успешного удаления файла."""
-    client.delete_file('/dbx_path')
-    client.dbx.files_delete_v2.assert_called_once_with('/dbx_path')
+    client.delete_file("/dbx_path")
+    client.dbx.files_delete_v2.assert_called_once_with("/dbx_path")
+
 
 def test_delete_file_api_error(client):
     """Тест ошибки при удалении файла."""
     client.dbx.files_delete_v2.side_effect = ApiError(None, None, None, None)
     with pytest.raises(ApiError):
-        client.delete_file('/dbx_path')
+        client.delete_file("/dbx_path")

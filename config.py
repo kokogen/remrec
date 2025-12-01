@@ -6,12 +6,14 @@ import logging
 
 TOKEN_STORAGE_FILE = ".dropbox.token"
 
+
 # Define all settings in one class
 class Settings(BaseSettings):
     """
     Centralized application configuration with type validation.
     Automatically reads variables from the environment and the token file.
     """
+
     # --- Secrets from .env ---
     DROPBOX_APP_KEY: str
     DROPBOX_APP_SECRET: str
@@ -19,7 +21,9 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str
     LOG_LEVEL: str = "INFO"
     # The two potential sources for the refresh token. The application logic will decide the priority.
-    DROPBOX_REFRESH_TOKEN_ENV: Optional[str] = Field(None, alias='DROPBOX_REFRESH_TOKEN')
+    DROPBOX_REFRESH_TOKEN_ENV: Optional[str] = Field(
+        None, alias="DROPBOX_REFRESH_TOKEN"
+    )
     DROPBOX_REFRESH_TOKEN_FILE: Optional[str] = None
 
     # --- Dropbox Paths (must be set in .env) ---
@@ -37,7 +41,7 @@ class Settings(BaseSettings):
 
     # --- Constants and Computed Paths ---
     BASE_DIR: Path = Path(__file__).resolve().parent
-    
+
     def model_post_init(self, __context):
         """
         After initial settings are loaded from the environment,

@@ -5,7 +5,8 @@ from unittest.mock import patch, MagicMock
 # Импортируем тестируемую функцию
 from recognition import recognize
 
-@patch('recognition.client.chat.completions.create')
+
+@patch("recognition.client.chat.completions.create")
 def test_recognize_success(mock_create_completion):
     """
     Тест успешного вызова API распознавания.
@@ -24,11 +25,12 @@ def test_recognize_success(mock_create_completion):
     # 3. Проверки
     # Проверяем, что метод create был вызван один раз
     mock_create_completion.assert_called_once()
-    
+
     # Проверяем, что результат функции соответствует тому, что вернул мок
     assert result == "Expected recognized text"
 
-@patch('recognition.client.chat.completions.create')
+
+@patch("recognition.client.chat.completions.create")
 def test_recognize_api_error(mock_create_completion):
     """
     Тест обработки ошибки при вызове API.
@@ -48,4 +50,3 @@ def test_recognize_api_error(mock_create_completion):
     # Убеждаемся, что это именно то исключение, которое мы "запланировали"
     assert excinfo.value == api_error
     mock_create_completion.assert_called_once()
-

@@ -11,7 +11,10 @@ from exceptions import PermanentError, TransientError
 from recognition import image_to_base64, recognize
 from pdf_utils import create_reflowed_pdf
 
-def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.FileMetadata):
+
+def process_single_file(
+    dbx_client: DropboxClient, file_entry: dropbox.files.FileMetadata
+):
     """
     Full processing cycle for a single file with detailed error handling at each step.
     Raises TransientError or PermanentError on failure.
@@ -33,7 +36,10 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
             pages = convert_from_path(str(local_pdf_path), dpi=settings.PDF_DPI)
             if not pages:
                 raise PermanentError("PDF conversion resulted in 0 pages.")
-        except (pdf2image_exceptions.PDFPageCountError, pdf2image_exceptions.PDFSyntaxError) as e:
+        except (
+            pdf2image_exceptions.PDFPageCountError,
+            pdf2image_exceptions.PDFSyntaxError,
+        ) as e:
             # These errors indicate a corrupted or invalid PDF
             raise PermanentError(f"Corrupted or invalid PDF file: {e}") from e
         except Exception as e:
@@ -43,19 +49,23 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
         # 3. Recognize text
         recognized_texts = []
         for i, page in enumerate(pages):
-            logging.info(f"Recognizing page {i+1}/{len(pages)}...")
+            logging.info(f"Recognizing page {i + 1}/{len(pages)}...")
             try:
                 img_b64 = image_to_base64(page)
                 text = recognize(img_b64)
-                recognized_texts.append(f"--- Page {i+1} ---\n{text}")
+                recognized_texts.append(f"--- Page {i + 1} ---\n{text}")
             except openai.APIConnectionError as e:
                 raise TransientError("Recognition API connection error") from e
             except openai.RateLimitError as e:
                 raise TransientError("Recognition API rate limit exceeded") from e
             except openai.BadRequestError as e:
-                raise PermanentError(f"Recognition API bad request (invalid image?): {e}") from e
+                raise PermanentError(
+                    f"Recognition API bad request (invalid image?): {e}"
+                ) from e
             except openai.AuthenticationError as e:
-                raise PermanentError(f"Recognition API authentication error (check API key): {e}") from e
+                raise PermanentError(
+                    f"Recognition API authentication error (check API key): {e}"
+                ) from e
 
         full_text = "\n\n".join(recognized_texts)
 
@@ -74,7 +84,9 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
             dbx_client.delete_file(file_entry.path_display)
         except dropbox.exceptions.ApiError as e:
             # If deletion fails, it's not critical, but should be logged
-            logging.warning(f"Could not delete original file {file_entry.name} after processing. Error: {e}")
+            logging.warning(
+                f"Could not delete original file {file_entry.name} after processing. Error: {e}"
+            )
 
         logging.info(f"Successfully processed and deleted {file_entry.name}")
 
@@ -85,4 +97,3 @@ def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.Fil
             os.remove(local_pdf_path)
         if os.path.exists(result_pdf_path):
             os.remove(result_pdf_path)
-
