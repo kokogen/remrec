@@ -1,6 +1,6 @@
 # tests/test_pdf_utils.py
 import pytest
-from unittest.mock import patch, MagicMock, call, ANY
+from unittest.mock import patch, MagicMock, ANY
 from reportlab.platypus import Paragraph, PageBreak
 
 from pdf_utils import create_reflowed_pdf

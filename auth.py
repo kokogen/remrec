@@ -1,5 +1,4 @@
 # auth.py
-import os
 import secrets
 import hashlib
 import base64
