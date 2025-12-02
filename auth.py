@@ -5,7 +5,7 @@ import base64
 import webbrowser
 import urllib.parse
 import requests
-from config import settings
+from config import get_settings
 
 TOKEN_STORAGE_FILE = ".dropbox.token"
 
@@ -94,8 +94,9 @@ def get_refresh_token(app_key: str):
         print(f"\n❌ An unexpected error occurred: {e}")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # We can run this script directly to perform authorization
+    settings = get_settings()
     app_key = settings.DROPBOX_APP_KEY
     if not app_key or "YOUR_APP_KEY" in app_key:
         print("Error: `DROPBOX_APP_KEY` is not configured in your .env file.")

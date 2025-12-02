@@ -5,20 +5,31 @@ import dropbox
 import openai
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
 
-from config import settings
+from config import get_settings
 from dbox import DropboxClient
 from exceptions import PermanentError, TransientError
 from recognition import image_to_base64, recognize
 from pdf_utils import create_reflowed_pdf
 
 
-def process_single_file(
-    dbx_client: DropboxClient, file_entry: dropbox.files.FileMetadata
-):
+def process_single_file(dbx_client: DropboxClient, file_entry: dropbox.files.FileMetadata):
+
+
     """
+
+
     Full processing cycle for a single file with detailed error handling at each step.
+
+
     Raises TransientError or PermanentError on failure.
+
+
     """
+
+
+    settings = get_settings()
+
+
     local_pdf_path = settings.LOCAL_BUF_DIR / file_entry.name
     result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_entry.name}"
 

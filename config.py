@@ -3,6 +3,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Optional
 import logging
+from functools import lru_cache
 
 TOKEN_STORAGE_FILE = ".dropbox.token"
 
@@ -67,8 +68,12 @@ class Settings(BaseSettings):
         return self.BASE_DIR / "app.log"
 
 
-# Create a single settings instance for the entire application
-settings = Settings()
-
-# Create necessary directories on startup
-settings.LOCAL_BUF_DIR.mkdir(exist_ok=True)
+@lru_cache()
+def get_settings() -> Settings:
+    """
+    Returns a cached instance of the application settings.
+    The first call to this function will initialize the settings.
+    """
+    settings = Settings()
+    settings.LOCAL_BUF_DIR.mkdir(exist_ok=True)
+    return settings

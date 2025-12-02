@@ -6,20 +6,18 @@ from reportlab.platypus import Paragraph, PageBreak
 from pdf_utils import create_reflowed_pdf
 
 
-# We need to mock the classes from reportlab that are used in the function
-@patch("pdf_utils.settings")
+# The mock for settings is now handled by the autouse fixture in conftest.py
+# We can also get it as an argument if we need to modify it for a specific test.
 @patch("pdf_utils.SimpleDocTemplate")
-def test_create_reflowed_pdf_success(mock_doc_template, mock_config):
+def test_create_reflowed_pdf_success(mock_doc_template, mock_settings):
     """
     Test the successful creation of a reflowed, multi-page PDF.
     """
     # 1. Setup mocks
-    # Mock the FONT_PATH to behave like a Path object with an .exists() method
-    # and a string representation that points to the real font file.
-    font_path_mock = MagicMock()
-    font_path_mock.exists.return_value = True
-    font_path_mock.__str__.return_value = "DejaVuSans.ttf"
-    mock_config.FONT_PATH = font_path_mock
+    # The mock_settings fixture already mocks the FONT_PATH and its .exists() method.
+    # We ensure .exists() returns True for this test.
+    mock_settings.FONT_PATH.exists.return_value = True
+    mock_settings.FONT_PATH.__str__.return_value = "DejaVuSans.ttf"
 
     mock_doc_instance = MagicMock()
     mock_doc_template.return_value = mock_doc_instance
@@ -38,10 +36,10 @@ def test_create_reflowed_pdf_success(mock_doc_template, mock_config):
     create_reflowed_pdf(test_content, pdf_path)
 
     # 3. Assertions
-    mock_config.FONT_PATH.exists.assert_called_once()
+    mock_settings.FONT_PATH.exists.assert_called_once()
 
     # Check that SimpleDocTemplate was initialized correctly
-    mock_doc_template.assert_called_once_with(pdf_path, pagesize=ANY)
+    mock_doc_template.assert_called_once_with(str(pdf_path), pagesize=ANY)
 
     # Check that the document was built with a list of flowables
     mock_doc_instance.build.assert_called_once()
@@ -69,17 +67,17 @@ def test_create_reflowed_pdf_success(mock_doc_template, mock_config):
     assert flowables[4].text == "This is the only line of page two."
 
 
-@patch("pdf_utils.settings")
-def test_create_reflowed_pdf_font_not_found(mock_config):
+def test_create_reflowed_pdf_font_not_found(mock_settings):
     """
     Test that a FileNotFoundError is raised if the font file does not exist.
     """
     # 1. Setup mock
-    mock_config.FONT_PATH.exists.return_value = False
+    # Configure the mock returned by the fixture for this specific test case
+    mock_settings.FONT_PATH.exists.return_value = False
 
     # 2. Call and assert exception
     with pytest.raises(FileNotFoundError, match="Font file not found"):
         create_reflowed_pdf("some text", "/fake/path.pdf")
 
     # 3. Assert check was made
-    mock_config.FONT_PATH.exists.assert_called_once()
+    mock_settings.FONT_PATH.exists.assert_called_once()

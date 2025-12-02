@@ -1,7 +1,7 @@
 # pdf_utils.py
 import logging
 import re
-from config import settings
+from config import get_settings
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -14,6 +14,7 @@ def create_reflowed_pdf(txt_content: str, pdf_path: str):
     Saves text content to a multi-page PDF, reflowing the text to fit the
     page width and creating page breaks based on a separator.
     """
+    settings = get_settings()
     if not settings.FONT_PATH.exists():
         logging.error(
             f"Font file not found at {settings.FONT_PATH}. Cannot create PDF."

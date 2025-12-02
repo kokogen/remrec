@@ -6,16 +6,20 @@ from unittest.mock import patch, MagicMock
 from recognition import recognize
 
 
-@patch("recognition.client.chat.completions.create")
-def test_recognize_success(mock_create_completion):
+@patch("recognition.OpenAI")
+def test_recognize_success(mock_openai_class, mock_settings):
     """
     Тест успешного вызова API распознавания.
     """
     # 1. Настройка мока
-    # Мы создаем "магический" мок, который позволяет имитировать вложенную структуру ответа API
-    mock_response = MagicMock()
-    mock_response.choices[0].message.content = "Expected recognized text"
-    mock_create_completion.return_value = mock_response
+    # Мы имитируем и сам класс OpenAI, и объект, который он создает
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+
+    # Настраиваем мок для ответа от API
+    mock_api_response = MagicMock()
+    mock_api_response.choices[0].message.content = "Expected recognized text"
+    mock_client_instance.chat.completions.create.return_value = mock_api_response
 
     fake_base64_image = "fake_base64_string"
 
@@ -23,21 +27,29 @@ def test_recognize_success(mock_create_completion):
     result = recognize(fake_base64_image)
 
     # 3. Проверки
+    # Убеждаемся, что клиент OpenAI был создан с правильными параметрами из mock_settings
+    mock_openai_class.assert_called_once_with(
+        base_url=mock_settings.OPENAI_BASE_URL, api_key=mock_settings.OPENAI_API_KEY
+    )
+
     # Проверяем, что метод create был вызван один раз
-    mock_create_completion.assert_called_once()
+    mock_client_instance.chat.completions.create.assert_called_once()
 
     # Проверяем, что результат функции соответствует тому, что вернул мок
     assert result == "Expected recognized text"
 
 
-@patch("recognition.client.chat.completions.create")
-def test_recognize_api_error(mock_create_completion):
+@patch("recognition.OpenAI")
+def test_recognize_api_error(mock_openai_class, mock_settings):
     """
     Тест обработки ошибки при вызове API.
     """
     # 1. Настройка мока для выброса исключения
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+
     api_error = Exception("API connection failed")
-    mock_create_completion.side_effect = api_error
+    mock_client_instance.chat.completions.create.side_effect = api_error
 
     fake_base64_image = "another_fake_base64_string"
 
@@ -49,4 +61,7 @@ def test_recognize_api_error(mock_create_completion):
     # 3. Проверка
     # Убеждаемся, что это именно то исключение, которое мы "запланировали"
     assert excinfo.value == api_error
-    mock_create_completion.assert_called_once()
+    mock_openai_class.assert_called_once_with(
+        base_url=mock_settings.OPENAI_BASE_URL, api_key=mock_settings.OPENAI_API_KEY
+    )
+    mock_client_instance.chat.completions.create.assert_called_once()
