@@ -7,6 +7,7 @@ from pathlib import Path
 # without triggering the validation error.
 from config import Settings
 
+
 @pytest.fixture
 def mock_settings():
     """
@@ -29,11 +30,12 @@ def mock_settings():
     settings.LOCAL_BUF_DIR = Path("/tmp/buf")
     settings.FONT_PATH = Path("/tmp/font.ttf")
     settings.LOG_FILE = Path("/tmp/app.log")
-    
+
     # Mock the .exists() method for paths
     settings.FONT_PATH.exists.return_value = True
-    
+
     return settings
+
 
 @pytest.fixture(autouse=True)
 def patch_get_settings(monkeypatch, mock_settings):

@@ -50,7 +50,7 @@ def setup_logging():
 def main_workflow():
     logging.info("Starting workflow...")
     settings = get_settings()
-    
+
     dbx = None
     # --- Smart Dropbox Client Initialization ---
     # 1. Try to use the token from the environment variable (primary for production)
@@ -189,16 +189,22 @@ def main():
             )
         logging.info("Single run finished.")
     else:
-                logging.info(f"Starting application in infinite loop mode. Sleep interval: {get_settings().LOOP_SLEEP_SECONDS} seconds.")
-                while True:
-                    try:
-                        main_workflow()
-                    except Exception as e:
-                        # This provides a top-level catch to prevent the entire loop from crashing.
-                        logging.critical(f"An unexpected error occurred in the main loop: {e}", exc_info=True)
-                    
-                    logging.info(f"Workflow run finished. Sleeping for {get_settings().LOOP_SLEEP_SECONDS} seconds.")
-                    time.sleep(get_settings().LOOP_SLEEP_SECONDS)
+        logging.info(
+            f"Starting application in infinite loop mode. Sleep interval: {get_settings().LOOP_SLEEP_SECONDS} seconds."
+        )
+        while True:
+            try:
+                main_workflow()
+            except Exception as e:
+                # This provides a top-level catch to prevent the entire loop from crashing.
+                logging.critical(
+                    f"An unexpected error occurred in the main loop: {e}", exc_info=True
+                )
+
+            logging.info(
+                f"Workflow run finished. Sleeping for {get_settings().LOOP_SLEEP_SECONDS} seconds."
+            )
+            time.sleep(get_settings().LOOP_SLEEP_SECONDS)
 
 
 if __name__ == "__main__":

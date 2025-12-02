@@ -94,7 +94,7 @@ def get_refresh_token(app_key: str):
         print(f"\n❌ An unexpected error occurred: {e}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # We can run this script directly to perform authorization
     settings = get_settings()
     app_key = settings.DROPBOX_APP_KEY
