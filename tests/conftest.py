@@ -31,8 +31,16 @@ def mock_settings():
     settings.FONT_PATH = Path("/tmp/font.ttf")
     settings.LOG_FILE = Path("/tmp/app.log")
 
-    # Mock the .exists() method for paths
-    settings.FONT_PATH.exists.return_value = True
+    # --- Mock Path objects ---
+    # Create a MagicMock for the FONT_PATH attribute
+    mock_font_path = MagicMock(spec=Path)
+    mock_font_path.exists.return_value = True
+    mock_font_path.__str__.return_value = "/tmp/font.ttf" # To satisfy str() calls if any
+    settings.FONT_PATH = mock_font_path
+    
+    settings.BASE_DIR = Path("/tmp")
+    settings.LOCAL_BUF_DIR = Path("/tmp/buf")
+    settings.LOG_FILE = Path("/tmp/app.log")
 
     return settings
 
