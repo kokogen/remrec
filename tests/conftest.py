@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Since we refactored config.py, we can now safely import the Settings class
 # without triggering the validation error.
-from config import Settings
+from config import Settings, get_settings
 
 
 @pytest.fixture
@@ -48,11 +48,14 @@ def mock_settings():
 
 
 @pytest.fixture(autouse=True)
-def patch_get_settings(monkeypatch, mock_settings):
+def patch_settings_class(monkeypatch, mock_settings):
     """
-    This autouse fixture automatically replaces `get_settings()` with a function
-    that returns our `mock_settings` instance. This means any part of the app
-    code that calls `get_settings()` during a test run will receive the
-    mocked settings.
+    This autouse fixture automatically replaces the `Settings` class constructor.
+    Any part of the app code that calls `Settings()` during a test run will
+    receive the `mock_settings` instance instead of a real settings object.
+    This is a robust way to ensure no real settings are ever loaded.
     """
-    monkeypatch.setattr("config.get_settings", lambda: mock_settings)
+    # We also need to clear the cache on get_settings, because it might have been
+    # called and cached a real instance during test collection.
+    get_settings.cache_clear()
+    monkeypatch.setattr("config.Settings", lambda *args, **kwargs: mock_settings)
