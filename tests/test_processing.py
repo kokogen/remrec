@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 import dropbox
 
 # Импортируем нужные классы для моков
@@ -54,7 +54,7 @@ def test_process_single_file_happy_path(
     mock_dbx_client.download_file.assert_called_once()
     mock_convert.assert_called_once()
     mock_recognize.assert_called_once()
-    mock_txt_to_pdf.assert_called_once()
+    mock_txt_to_pdf.assert_called_once_with(ANY, ANY)
     mock_dbx_client.upload_file.assert_called_once()
     mock_dbx_client.delete_file.assert_called_once_with("/test.pdf")
     assert mock_os_remove.call_count == 2

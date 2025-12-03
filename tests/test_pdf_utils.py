@@ -22,18 +22,15 @@ def test_create_reflowed_pdf_success(mock_doc_template, mock_settings):
     mock_doc_instance = MagicMock()
     mock_doc_template.return_value = mock_doc_instance
 
-    # Test content spanning multiple pages
-    test_content = (
-        "--- Page 1 ---\n"
-        "This is the first line of page one.\nThis is the second."
-        "\n\n"
-        "--- Page 2 ---\n"
+    # Test content spanning multiple pages (now a list of page contents)
+    page_contents = [
+        "This is the first line of page one.\nThis is the second.",
         "This is the only line of page two."
-    )
+    ]
     pdf_path = "/fake/path/doc.pdf"
 
     # 2. Call the function
-    create_reflowed_pdf(test_content, pdf_path)
+    create_reflowed_pdf(page_contents, pdf_path)
 
     # 3. Assertions
     mock_settings.FONT_PATH.exists.assert_called_once()
@@ -57,7 +54,7 @@ def test_create_reflowed_pdf_success(mock_doc_template, mock_settings):
     assert isinstance(flowables[3], Paragraph)  # Title 2
     assert isinstance(flowables[4], Paragraph)  # Content 2
 
-    # Check the content of the Paragraphs, ensuring newlines were replaced
+    # Check the content of the Paragraphs, ensuring newlines were replaced and titles are generated
     assert flowables[0].text == "--- Page 1 ---"
     assert (
         flowables[1].text
@@ -77,7 +74,7 @@ def test_create_reflowed_pdf_font_not_found(mock_settings):
 
     # 2. Call and assert exception
     with pytest.raises(FileNotFoundError, match="Font file not found"):
-        create_reflowed_pdf("some text", "/fake/path.pdf")
+        create_reflowed_pdf(["some text"], "/fake/path.pdf")
 
     # 3. Assert check was made
     mock_settings.FONT_PATH.exists.assert_called_once()

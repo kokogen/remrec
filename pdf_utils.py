@@ -1,6 +1,5 @@
 # pdf_utils.py
 import logging
-import re
 from config import get_settings
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak
@@ -9,10 +8,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 
-def create_reflowed_pdf(txt_content: str, pdf_path: str):
+def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     """
-    Saves text content to a multi-page PDF, reflowing the text to fit the
-    page width and creating page breaks based on a separator.
+    Saves a list of text contents (one per page) to a multi-page PDF,
+    reflowing the text to fit the page width and adding page breaks.
     """
     settings = get_settings()
     if not settings.FONT_PATH.exists():
@@ -37,30 +36,21 @@ def create_reflowed_pdf(txt_content: str, pdf_path: str):
     )
 
     flowables = []
-    # Split the text by the page separator. The separator is '--- Page X ---'
-    # We use a regex to split and keep the separator as a title.
-    pages = re.split(r"(\n*--- Page \d+ ---\n*)", txt_content)
+    # Process each page content
+    for i, page_content in enumerate(page_contents):
+        title_text = f"--- Page {i + 1} ---"
+        
+        # Replace newlines in the content with <br/> for ReportLab Paragraph
+        content_text = page_content.replace("\n", "<br/>")
 
-    # The first element might be empty if the text starts with the separator
-    if pages and not pages[0].strip():
-        pages.pop(0)
+        # Add title paragraph
+        flowables.append(Paragraph(title_text, styles["h2"]))
+        # Add content paragraph
+        flowables.append(Paragraph(content_text, custom_style))
+        # Add a page break after each page's content, but not for the last one
+        if i < len(page_contents) - 1:
+            flowables.append(PageBreak())
 
-    # Process pages in pairs: [separator, content, separator, content, ...]
-    for i in range(0, len(pages), 2):
-        if i + 1 < len(pages):
-            title_text = pages[i].strip()
-            content_text = pages[i + 1].strip()
-
-            # Replace newlines in the content with <br/> for ReportLab Paragraph
-            content_text = content_text.replace("\n", "<br/>")
-
-            # Add title paragraph
-            flowables.append(Paragraph(title_text, styles["h2"]))
-            # Add content paragraph
-            flowables.append(Paragraph(content_text, custom_style))
-            # Add a page break after each page's content, but not for the last one
-            if i + 2 < len(pages):
-                flowables.append(PageBreak())
 
     doc.build(flowables)
     logging.info(f"Reflowed PDF created at {pdf_path}")

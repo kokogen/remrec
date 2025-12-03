@@ -62,7 +62,7 @@ def process_single_file(
             try:
                 img_b64 = image_to_base64(page)
                 text = recognize(img_b64)
-                recognized_texts.append(f"--- Page {i + 1} ---\n{text}")
+                recognized_texts.append(text)
             except openai.APIConnectionError as e:
                 raise TransientError("Recognition API connection error") from e
             except openai.RateLimitError as e:
@@ -76,10 +76,8 @@ def process_single_file(
                     f"Recognition API authentication error (check API key): {e}"
                 ) from e
 
-        full_text = "\n\n".join(recognized_texts)
-
         # 4. Create a result PDF from the text
-        create_reflowed_pdf(full_text, result_pdf_path)
+        create_reflowed_pdf(recognized_texts, result_pdf_path)
 
         # 5. Upload the result to Dropbox
         try:
