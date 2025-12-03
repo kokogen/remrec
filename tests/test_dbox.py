@@ -44,7 +44,9 @@ def client():
 
 def test_list_files_success_single_page(client):
     """Тест успешного получения списка файлов (одна страница)."""
-    mock_result = ListFolderResult(entries=[FileMetadata(name="test.pdf")], has_more=False, cursor=None)
+    mock_result = ListFolderResult(
+        entries=[FileMetadata(name="test.pdf")], has_more=False, cursor=None
+    )
     client.dbx.files_list_folder.return_value = mock_result
 
     files = client.list_files("/some_path")
