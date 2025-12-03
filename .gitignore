@@ -13,7 +13,6 @@ grbg/
 .DS_Store
 .idea/
 .vscode/
-.github/
 
 improvement_plan.md
 .gemini/
