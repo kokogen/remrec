@@ -17,7 +17,6 @@ This file provides a comprehensive overview of the **Remarkable Recognizer** pro
     *   Merge the feature branch back into the `master` branch.
     *   Push the `master` branch to the remote repository.
 6.  **Tagging:** If the user explicitly provides a tag, apply it during the commit or push process.
-
 ---
 
 ## Project Overview
