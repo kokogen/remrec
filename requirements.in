@@ -10,3 +10,4 @@ pydantic-settings
 # Development tools
 ruff
 pytest
+pytest-cov
