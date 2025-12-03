@@ -32,21 +32,14 @@ class Settings(BaseSettings):
     DROPBOX_DEST_DIR: str
     DROPBOX_FAILED_DIR: str
 
-        # --- AI Settings (must be set in .env) ---
-
-        RECOGNITION_MODEL: str = Field(
-
-            "gemini-pro-vision", validation_alias="RECOGNITION_MODEL"
-
-        )
-
-        DROPBOX_UPLOAD_CHUNK_SIZE: int = Field(
-
-            128 * 1024 * 1024, validation_alias="DROPBOX_UPLOAD_CHUNK_SIZE"
-
-        )  # 128 MB default
-
-        RECOGNITION_PROMPT: str
+    # --- AI Settings (must be set in .env) ---
+    RECOGNITION_MODEL: str = Field(
+        "gemini-pro-vision", validation_alias="RECOGNITION_MODEL"
+    )
+    DROPBOX_UPLOAD_CHUNK_SIZE: int = Field(
+        128 * 1024 * 1024, validation_alias="DROPBOX_UPLOAD_CHUNK_SIZE"
+    )  # 128 MB default
+    RECOGNITION_PROMPT: str
     PDF_DPI: int
 
     # --- Workflow Settings (must be set in .env) ---
