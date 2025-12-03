@@ -5,6 +5,10 @@ import logging
 from openai import OpenAI
 from config import get_settings
 
+# Initialize settings and OpenAI client once at module level
+settings = get_settings()
+client_instance = OpenAI(base_url=settings.OPENAI_BASE_URL, api_key=settings.OPENAI_API_KEY)
+
 
 def image_to_base64(img):
     """Encodes a PIL image object into a Base64 string."""
@@ -20,13 +24,9 @@ def recognize(img_base64: str) -> str:
     :param img_base64: Base64 encoded image.
     :return: Recognized text.
     """
-    settings = get_settings()
     try:
-        client = OpenAI(
-            base_url=settings.OPENAI_BASE_URL, api_key=settings.OPENAI_API_KEY
-        )
         logging.info("Sending image to recognition API...")
-        completion = client.chat.completions.create(
+        completion = client_instance.chat.completions.create(
             model=settings.RECOGNITION_MODEL,
             messages=[
                 {
