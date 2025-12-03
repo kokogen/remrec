@@ -28,10 +28,19 @@ class DropboxClient:
             raise
 
     def list_files(self, path):
-        """Returns a list of files in the specified Dropbox directory."""
+        """
+        Returns a list of all files in the specified Dropbox directory,
+        handling pagination automatically.
+        """
         try:
             logging.info(f"Listing files in Dropbox path: '{path}'")
-            return self.dbx.files_list_folder(path).entries
+            result = self.dbx.files_list_folder(path)
+            all_entries = result.entries
+            while result.has_more:
+                logging.info("Found more files, continuing listing...")
+                result = self.dbx.files_list_folder_continue(result.cursor)
+                all_entries.extend(result.entries)
+            return all_entries
         except ApiError as e:
             logging.error(f"Failed to list files in Dropbox path '{path}': {e}")
             return []
