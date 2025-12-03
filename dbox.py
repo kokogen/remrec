@@ -1,9 +1,9 @@
 # dbox.py
 import dropbox
-from dropbox.files import WriteMode
+from dropbox.files import WriteMode, CommitInfo
 from dropbox.exceptions import ApiError
 import logging
-
+from config import get_settings
 
 class DropboxClient:
     """
@@ -55,16 +55,49 @@ class DropboxClient:
             raise
 
     def upload_file(self, local_path, dropbox_path):
-        """Uploads a local file to Dropbox."""
-        with open(local_path, "rb") as f:
-            try:
-                logging.info(f"Uploading {local_path} to {dropbox_path}...")
-                self.dbx.files_upload(
-                    f.read(), dropbox_path, mode=WriteMode("overwrite")
-                )
-            except ApiError as e:
-                logging.error(f"Failed to upload file to '{dropbox_path}': {e}")
-                raise
+        """Uploads a local file to Dropbox using chunked uploading for efficiency."""
+        settings = get_settings()
+        chunk_size = settings.DROPBOX_UPLOAD_CHUNK_SIZE
+
+        file_size = local_path.stat().st_size
+        if file_size < chunk_size:
+            # If file is smaller than chunk size, use a single upload
+            with open(local_path, "rb") as f:
+                try:
+                    logging.info(f"Uploading {local_path} to {dropbox_path} (single upload)...")
+                    self.dbx.files_upload(
+                        f.read(), dropbox_path, mode=WriteMode("overwrite")
+                    )
+                except ApiError as e:
+                    logging.error(f"Failed to upload file to '{dropbox_path}': {e}")
+                    raise
+        else:
+            # Use chunked upload for larger files
+            with open(local_path, "rb") as f:
+                try:
+                    logging.info(f"Starting chunked upload for {local_path} to {dropbox_path}...")
+                    upload_session_start_result = self.dbx.files_upload_session_start(f.read(chunk_size))
+                    cursor = dropbox.files.UploadSessionCursor(
+                        session_id=upload_session_start_result.session_id,
+                        offset=f.tell()
+                    )
+                    commit_info = CommitInfo(path=dropbox_path, mode=WriteMode("overwrite"))
+
+                    while f.tell() < file_size:
+                        next_chunk = f.read(chunk_size)
+                        if (file_size - f.tell()) <= chunk_size:
+                            # Last chunk
+                            logging.info(f"Uploading final chunk for {dropbox_path}...")
+                            self.dbx.files_upload_session_finish(next_chunk, cursor, commit_info)
+                        else:
+                            # Middle chunk
+                            logging.info(f"Uploading chunk for {dropbox_path} (offset: {f.tell()})...")
+                            self.dbx.files_upload_session_append_v2(next_chunk, cursor)
+                            cursor.offset = f.tell()
+                    logging.info(f"Chunked upload completed for {dropbox_path}.")
+                except ApiError as e:
+                    logging.error(f"Failed to upload file to '{dropbox_path}' using chunked upload: {e}")
+                    raise
 
     def move_file(self, from_path, to_path):
         """Moves a file within Dropbox."""
@@ -94,3 +127,4 @@ class DropboxClient:
                 self.dbx.files_create_folder_v2(path)
             else:
                 raise
+
