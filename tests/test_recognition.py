@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock
 
 # Импортируем тестируемую функцию
 from recognition import recognize, get_openai_client
+import recognition # Импортируем модуль целиком
 
 
 @patch("recognition.get_openai_client")
@@ -66,9 +67,6 @@ def test_get_openai_client_caching(mock_openai_class):
     Тест, который проверяет, что клиент OpenAI создается только один раз.
     """
     # Сбрасываем "состояние" нашего модуля перед тестом
-    from recognition import _client
-    import recognition
-
     recognition._client = None
 
     mock_client_instance = MagicMock()
