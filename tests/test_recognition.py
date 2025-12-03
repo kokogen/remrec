@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 
 # Импортируем тестируемую функцию
 from recognition import recognize, get_openai_client
-import recognition # Импортируем модуль целиком
+import recognition  # Импортируем модуль целиком
 
 
 @patch("recognition.get_openai_client")
