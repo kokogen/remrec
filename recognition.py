@@ -7,7 +7,9 @@ from config import get_settings
 
 # Initialize settings and OpenAI client once at module level
 settings = get_settings()
-client_instance = OpenAI(base_url=settings.OPENAI_BASE_URL, api_key=settings.OPENAI_API_KEY)
+client_instance = OpenAI(
+    base_url=settings.OPENAI_BASE_URL, api_key=settings.OPENAI_API_KEY
+)
 
 
 def image_to_base64(img):
