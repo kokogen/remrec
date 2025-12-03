@@ -26,6 +26,7 @@ def mock_settings():
     settings.RECOGNITION_PROMPT = "test prompt"
     settings.PDF_DPI = 300
     settings.LOOP_SLEEP_SECONDS = 1
+    settings.DROPBOX_UPLOAD_CHUNK_SIZE = 1024
     settings.BASE_DIR = Path("/tmp")
     settings.LOCAL_BUF_DIR = Path("/tmp/buf")
     settings.FONT_PATH = Path("/tmp/font.ttf")
