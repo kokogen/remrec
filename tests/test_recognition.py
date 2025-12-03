@@ -1,22 +1,19 @@
 # tests/test_recognition.py
-import pytest
 from unittest.mock import patch, MagicMock
 
 # Импортируем тестируемую функцию
-from recognition import recognize
+from recognition import recognize, get_openai_client
 
 
-@patch("recognition.OpenAI")
-def test_recognize_success(mock_openai_class, mock_settings):
+@patch("recognition.get_openai_client")
+def test_recognize_success(mock_get_client, mock_settings):
     """
     Тест успешного вызова API распознавания.
     """
     # 1. Настройка мока
-    # Мы имитируем и сам класс OpenAI, и объект, который он создает
     mock_client_instance = MagicMock()
-    mock_openai_class.return_value = mock_client_instance
+    mock_get_client.return_value = mock_client_instance
 
-    # Настраиваем мок для ответа от API
     mock_api_response = MagicMock()
     mock_api_response.choices[0].message.content = "Expected recognized text"
     mock_client_instance.chat.completions.create.return_value = mock_api_response
@@ -24,29 +21,24 @@ def test_recognize_success(mock_openai_class, mock_settings):
     fake_base64_image = "fake_base64_string"
 
     # 2. Вызов тестируемой функции
+    # Поскольку get_settings используется в recognize, а мы его мокаем в conftest,
+    # нам не нужно его передавать явно.
     result = recognize(fake_base64_image)
 
     # 3. Проверки
-    # Убеждаемся, что клиент OpenAI был создан с правильными параметрами из mock_settings
-    mock_openai_class.assert_called_once_with(
-        base_url=mock_settings.OPENAI_BASE_URL, api_key=mock_settings.OPENAI_API_KEY
-    )
-
-    # Проверяем, что метод create был вызван один раз
+    mock_get_client.assert_called_once()
     mock_client_instance.chat.completions.create.assert_called_once()
-
-    # Проверяем, что результат функции соответствует тому, что вернул мок
     assert result == "Expected recognized text"
 
 
-@patch("recognition.OpenAI")
-def test_recognize_api_error(mock_openai_class, mock_settings):
+@patch("recognition.get_openai_client")
+def test_recognize_api_error(mock_get_client, mock_settings):
     """
     Тест обработки ошибки при вызове API.
     """
-    # 1. Настройка мока для выброса исключения
+    # 1. Настройка мока
     mock_client_instance = MagicMock()
-    mock_openai_class.return_value = mock_client_instance
+    mock_get_client.return_value = mock_client_instance
 
     api_error = Exception("API connection failed")
     mock_client_instance.chat.completions.create.side_effect = api_error
@@ -54,14 +46,39 @@ def test_recognize_api_error(mock_openai_class, mock_settings):
     fake_base64_image = "another_fake_base64_string"
 
     # 2. Вызов и проверка исключения
-    # Используем pytest.raises для проверки, что функция действительно выбросила исключение
-    with pytest.raises(Exception) as excinfo:
-        recognize(fake_base64_image)
+    with patch("recognition.get_settings", return_value=mock_settings):
+        try:
+            recognize(fake_base64_image)
+            # Если исключение не было вызвано, тест должен провалиться
+            assert False, "Exception was not raised"
+        except Exception as e:
+            # 3. Проверка
+            assert e == api_error
 
-    # 3. Проверка
-    # Убеждаемся, что это именно то исключение, которое мы "запланировали"
-    assert excinfo.value == api_error
-    mock_openai_class.assert_called_once_with(
-        base_url=mock_settings.OPENAI_BASE_URL, api_key=mock_settings.OPENAI_API_KEY
-    )
+    mock_get_client.assert_called_once()
     mock_client_instance.chat.completions.create.assert_called_once()
+
+
+# Дополнительный тест, чтобы убедиться, что кеширование клиента работает
+@patch("recognition.OpenAI")
+def test_get_openai_client_caching(mock_openai_class):
+    """
+    Тест, который проверяет, что клиент OpenAI создается только один раз.
+    """
+    # Сбрасываем "состояние" нашего модуля перед тестом
+    from recognition import _client
+    import recognition
+
+    recognition._client = None
+
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+
+    # Вызываем функцию дважды
+    client1 = get_openai_client()
+    client2 = get_openai_client()
+
+    # Проверяем, что обе переменные указывают на один и тот же объект
+    assert client1 is client2
+    # И самое главное: проверяем, что класс OpenAI был вызван для создания объекта только один раз
+    mock_openai_class.assert_called_once()

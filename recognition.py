@@ -5,11 +5,25 @@ import logging
 from openai import OpenAI
 from config import get_settings
 
-# Initialize settings and OpenAI client once at module level
-settings = get_settings()
-client_instance = OpenAI(
-    base_url=settings.OPENAI_BASE_URL, api_key=settings.OPENAI_API_KEY
-)
+# Global variable to hold the client instance.
+# Using a private-like name to discourage direct access.
+_client: OpenAI | None = None
+
+
+def get_openai_client() -> OpenAI:
+    """
+    Initializes and returns the OpenAI client, caching it for subsequent calls.
+    This "lazy loading" pattern prevents the client from being created at
+    module import time, which is crucial for testing.
+    """
+    global _client
+    if _client is None:
+        logging.info("Initializing OpenAI client for the first time.")
+        settings = get_settings()
+        _client = OpenAI(
+            base_url=settings.OPENAI_BASE_URL, api_key=settings.OPENAI_API_KEY
+        )
+    return _client
 
 
 def image_to_base64(img):
@@ -26,9 +40,12 @@ def recognize(img_base64: str) -> str:
     :param img_base64: Base64 encoded image.
     :return: Recognized text.
     """
+    settings = get_settings()
+    client = get_openai_client()
+
     try:
         logging.info("Sending image to recognition API...")
-        completion = client_instance.chat.completions.create(
+        completion = client.chat.completions.create(
             model=settings.RECOGNITION_MODEL,
             messages=[
                 {
