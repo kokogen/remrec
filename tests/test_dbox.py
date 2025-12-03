@@ -1,6 +1,6 @@
 # tests/test_dbox.py
 import pytest
-from unittest.mock import patch, ANY
+from unittest.mock import patch, ANY, MagicMock
 from dropbox.exceptions import ApiError
 from dropbox.files import ListFolderResult, FileMetadata
 
