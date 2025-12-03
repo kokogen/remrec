@@ -39,7 +39,7 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     # Process each page content
     for i, page_content in enumerate(page_contents):
         title_text = f"--- Page {i + 1} ---"
-        
+
         # Replace newlines in the content with <br/> for ReportLab Paragraph
         content_text = page_content.replace("\n", "<br/>")
 
@@ -50,7 +50,6 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
         # Add a page break after each page's content, but not for the last one
         if i < len(page_contents) - 1:
             flowables.append(PageBreak())
-
 
     doc.build(flowables)
     logging.info(f"Reflowed PDF created at {pdf_path}")

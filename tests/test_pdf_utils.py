@@ -25,7 +25,7 @@ def test_create_reflowed_pdf_success(mock_doc_template, mock_settings):
     # Test content spanning multiple pages (now a list of page contents)
     page_contents = [
         "This is the first line of page one.\nThis is the second.",
-        "This is the only line of page two."
+        "This is the only line of page two.",
     ]
     pdf_path = "/fake/path/doc.pdf"
 
