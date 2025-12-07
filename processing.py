@@ -1,47 +1,44 @@
 # processing.py
 import logging
 import os
-import dropbox
 import openai
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
+from typing import Any
 
 from config import get_settings
-from dbox import DropboxClient
+from storage.base import StorageClient
 from exceptions import PermanentError, TransientError
 from recognition import image_to_base64, recognize
 from pdf_utils import create_reflowed_pdf
 
 
 def process_single_file(
-    dbx_client: DropboxClient, file_entry: dropbox.files.FileMetadata
+    storage_client: StorageClient, file_entry: Any
 ):
     """
-
-
     Full processing cycle for a single file with detailed error handling at each step.
-
-
-    Raises TransientError or PermanentError on failure.
-
-
+    Works with any client that implements the StorageClient interface.
     """
-
     settings = get_settings()
 
-    local_pdf_path = settings.LOCAL_BUF_DIR / file_entry.name
-    result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_entry.name}"
+    is_dropbox = settings.STORAGE_PROVIDER == "dropbox"
+    
+    file_name = file_entry.name if is_dropbox else file_entry.get("name")
+    file_id = file_entry.path_display if is_dropbox else file_entry.get("id")
+
+    local_pdf_path = settings.LOCAL_BUF_DIR / file_name
+    result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_name}"
 
     try:
         # 1. Download the file
         try:
-            dbx_client.download_file(file_entry.path_display, local_pdf_path)
-        except dropbox.exceptions.ApiError as e:
-            # Dropbox API errors can be temporary
-            raise TransientError(f"Dropbox API error during download: {e}") from e
+            storage_client.download_file(file_id, local_pdf_path)
+        except Exception as e:
+            raise TransientError(f"API error during download: {e}") from e
 
         # 2. Convert PDF to images
         try:
-            logging.info(f"Converting PDF {file_entry.name} to images...")
+            logging.info(f"Converting PDF {file_name} to images...")
             pages = convert_from_path(str(local_pdf_path), dpi=settings.PDF_DPI)
             if not pages:
                 raise PermanentError("PDF conversion resulted in 0 pages.")
@@ -49,10 +46,8 @@ def process_single_file(
             pdf2image_exceptions.PDFPageCountError,
             pdf2image_exceptions.PDFSyntaxError,
         ) as e:
-            # These errors indicate a corrupted or invalid PDF
             raise PermanentError(f"Corrupted or invalid PDF file: {e}") from e
         except Exception as e:
-            # Any other conversion error is likely also permanent for this file
             raise PermanentError(f"PDF conversion failed: {e}") from e
 
         # 3. Recognize text
@@ -79,23 +74,22 @@ def process_single_file(
         # 4. Create a result PDF from the text
         create_reflowed_pdf(recognized_texts, result_pdf_path)
 
-        # 5. Upload the result to Dropbox
+        # 5. Upload the result
         try:
-            dest_path = f"{settings.DROPBOX_DEST_DIR}/{result_pdf_path.name}"
-            dbx_client.upload_file(result_pdf_path, dest_path)
-        except dropbox.exceptions.ApiError as e:
-            raise TransientError(f"Dropbox API error during upload: {e}") from e
+            dest_path = f"{settings.DROPBOX_DEST_DIR}/{result_pdf_path.name}" if is_dropbox else settings.GDRIVE_DEST_FOLDER_ID
+            storage_client.upload_file(result_pdf_path, dest_path)
+        except Exception as e:
+            raise TransientError(f"API error during upload: {e}") from e
 
         # 6. Delete the original file
         try:
-            dbx_client.delete_file(file_entry.path_display)
-        except dropbox.exceptions.ApiError as e:
-            # If deletion fails, it's not critical, but should be logged
+            storage_client.delete_file(file_id)
+        except Exception as e:
             logging.warning(
-                f"Could not delete original file {file_entry.name} after processing. Error: {e}"
+                f"Could not delete original file {file_name} after processing. Error: {e}"
             )
 
-        logging.info(f"Successfully processed and deleted {file_entry.name}")
+        logging.info(f"Successfully processed and deleted {file_name}")
 
     finally:
         # 7. Clean up local files in any case

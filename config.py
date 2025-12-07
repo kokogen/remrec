@@ -15,22 +15,29 @@ class Settings(BaseSettings):
     Automatically reads variables from the environment and the token file.
     """
 
-    # --- Secrets from .env ---
-    DROPBOX_APP_KEY: str
-    DROPBOX_APP_SECRET: str
+    # --- General Settings ---
+    STORAGE_PROVIDER: str = "dropbox"  # "dropbox" or "gdrive"
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
     LOG_LEVEL: str = "INFO"
-    # The two potential sources for the refresh token. The application logic will decide the priority.
+
+    # --- Dropbox Settings (optional) ---
+    DROPBOX_APP_KEY: Optional[str] = None
+    DROPBOX_APP_SECRET: Optional[str] = None
     DROPBOX_REFRESH_TOKEN_ENV: Optional[str] = Field(
         None, alias="DROPBOX_REFRESH_TOKEN"
     )
     DROPBOX_REFRESH_TOKEN_FILE: Optional[str] = None
+    DROPBOX_SOURCE_DIR: Optional[str] = None
+    DROPBOX_DEST_DIR: Optional[str] = None
+    DROPBOX_FAILED_DIR: Optional[str] = None
 
-    # --- Dropbox Paths (must be set in .env) ---
-    DROPBOX_SOURCE_DIR: str
-    DROPBOX_DEST_DIR: str
-    DROPBOX_FAILED_DIR: str
+    # --- Google Drive Settings (optional) ---
+    GDRIVE_CREDENTIALS_JSON: Optional[str] = None
+    GDRIVE_TOKEN_JSON: Optional[str] = None
+    GDRIVE_SOURCE_FOLDER_ID: Optional[str] = None
+    GDRIVE_DEST_FOLDER_ID: Optional[str] = None
+    GDRIVE_FAILED_FOLDER_ID: Optional[str] = None
 
     # --- AI Settings (must be set in .env) ---
     RECOGNITION_MODEL: str = Field(

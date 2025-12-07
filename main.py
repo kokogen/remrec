@@ -1,10 +1,11 @@
 # main.py
 import logging
-import dropbox
 import time
 
 from config import get_settings
 from dbox import DropboxClient
+from gdrive import GoogleDriveClient
+from storage.base import StorageClient
 from exceptions import PermanentError, TransientError
 from processing import process_single_file
 
@@ -45,75 +46,88 @@ def setup_logging():
     # Reducing "noise" from third-party libraries
     logging.getLogger("dropbox").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("googleapiclient").setLevel(logging.WARNING)
 
 
 def main_workflow():
     logging.info("Starting workflow...")
     settings = get_settings()
 
-    dbx = None
-    # --- Smart Dropbox Client Initialization ---
-    # 1. Try to use the token from the environment variable (primary for production)
-    if settings.DROPBOX_REFRESH_TOKEN_ENV:
-        try:
-            logging.info(
-                "Attempting to connect to Dropbox using token from environment variable..."
-            )
-            dbx = DropboxClient(
-                app_key=settings.DROPBOX_APP_KEY,
-                app_secret=settings.DROPBOX_APP_SECRET,
-                refresh_token=settings.DROPBOX_REFRESH_TOKEN_ENV,
-            )
-        except Exception:
-            logging.warning(
-                "Failed to connect using token from environment variable. It might be invalid or expired."
-            )
-            dbx = None  # Explicitly set to None on failure
+    storage_client: StorageClient = None
+    source_path = None
+    dest_path = None
+    failed_path = None
 
-    # 2. If the first attempt failed or was skipped, try the token from the file (fallback for local dev)
-    if dbx is None and settings.DROPBOX_REFRESH_TOKEN_FILE:
+    if settings.STORAGE_PROVIDER == "dropbox":
+        logging.info("Using Dropbox storage provider.")
+        source_path = settings.DROPBOX_SOURCE_DIR
+        dest_path = settings.DROPBOX_DEST_DIR
+        failed_path = settings.DROPBOX_FAILED_DIR
+        
+        # --- Smart Dropbox Client Initialization ---
+        # 1. Try to use the token from the environment variable (primary for production)
+        if settings.DROPBOX_REFRESH_TOKEN_ENV:
+            try:
+                logging.info("Attempting to connect to Dropbox using token from environment variable...")
+                storage_client = DropboxClient(
+                    app_key=settings.DROPBOX_APP_KEY,
+                    app_secret=settings.DROPBOX_APP_SECRET,
+                    refresh_token=settings.DROPBOX_REFRESH_TOKEN_ENV,
+                )
+            except Exception:
+                logging.warning("Failed to connect using token from environment variable. It might be invalid or expired.")
+                storage_client = None
+        
+        # 2. If the first attempt failed or was skipped, try the token from the file (fallback for local dev)
+        if storage_client is None and settings.DROPBOX_REFRESH_TOKEN_FILE:
+            try:
+                logging.info("Attempting to connect to Dropbox using token from '.dropbox.token' file...")
+                storage_client = DropboxClient(
+                    app_key=settings.DROPBOX_APP_KEY,
+                    app_secret=settings.DROPBOX_APP_SECRET,
+                    refresh_token=settings.DROPBOX_REFRESH_TOKEN_FILE,
+                )
+            except Exception as e:
+                logging.error(f"Failed to connect using token from file. Error: {e}", exc_info=True)
+                storage_client = None
+
+    elif settings.STORAGE_PROVIDER == "gdrive":
+        logging.info("Using Google Drive storage provider.")
+        source_path = settings.GDRIVE_SOURCE_FOLDER_ID
+        dest_path = settings.GDRIVE_DEST_FOLDER_ID
+        failed_path = settings.GDRIVE_FAILED_FOLDER_ID
         try:
-            logging.info(
-                "Attempting to connect to Dropbox using token from '.dropbox.token' file..."
-            )
-            dbx = DropboxClient(
-                app_key=settings.DROPBOX_APP_KEY,
-                app_secret=settings.DROPBOX_APP_SECRET,
-                refresh_token=settings.DROPBOX_REFRESH_TOKEN_FILE,
-            )
+            storage_client = GoogleDriveClient()
         except Exception as e:
-            logging.error(
-                f"Failed to connect using token from file. Error: {e}", exc_info=True
-            )
-            dbx = None
+            logging.error(f"Failed to initialize Google Drive client. Error: {e}", exc_info=True)
+            storage_client = None
+    else:
+        logging.critical(f"Unknown STORAGE_PROVIDER: {settings.STORAGE_PROVIDER}")
+        return
 
-    # 3. If both attempts failed, exit the workflow for this run.
-    if dbx is None:
-        logging.critical(
-            "Could not establish a connection to Dropbox. Both environment variable and token file methods failed or were not configured."
-        )
-        return  # Stop the workflow for this cycle
+    # 3. If client initialization failed, exit the workflow for this run.
+    if storage_client is None:
+        logging.critical(f"Could not establish a connection to {settings.STORAGE_PROVIDER}.")
+        return
 
-    # Check/create necessary folders in Dropbox
-    for folder in [settings.DROPBOX_SOURCE_DIR, settings.DROPBOX_DEST_DIR]:
-        # The root folder ("") always exists and doesn't need to be created.
+    # Check/create necessary folders
+    for folder in [source_path, dest_path, failed_path]:
         if folder:
-            dbx.create_folder_if_not_exists(folder)
+            storage_client.create_folder_if_not_exists(folder)
 
-    files_to_process = dbx.list_files(settings.DROPBOX_SOURCE_DIR)
+    files_to_process = storage_client.list_files(source_path)
     if not files_to_process:
         logging.info("No new files to process.")
         return
 
     logging.info(f"Found {len(files_to_process)} files to process.")
     for entry in files_to_process:
-        if isinstance(
-            entry, dropbox.files.FileMetadata
-        ) and entry.name.lower().endswith(".pdf"):
+        # A simple check for PDF files based on name
+        if entry.name.lower().endswith(".pdf"):
             logging.info(f"--- Processing file: {entry.name} ---")
             start_time = time.monotonic()
             try:
-                process_single_file(dbx, entry)
+                process_single_file(storage_client, entry)
                 duration = time.monotonic() - start_time
                 logging.info(
                     f"Finished processing {entry.name}. Took {duration:.2f} seconds."
@@ -126,8 +140,11 @@ def main_workflow():
                     exc_info=True,
                 )
                 try:
-                    quarantine_path = f"{settings.DROPBOX_FAILED_DIR}/{entry.name}"
-                    dbx.move_file(entry.path_display, quarantine_path)
+                    # For Dropbox, entry.path_display is used. For GDrive, entry.id.
+                    # The move_file method in the client should handle this.
+                    from_path = entry.path_display if settings.STORAGE_PROVIDER == "dropbox" else entry.id
+                    quarantine_path = f"{failed_path}/{entry.name}" if settings.STORAGE_PROVIDER == "dropbox" else failed_path
+                    storage_client.move_file(from_path, quarantine_path)
                     logging.warning(
                         f"Moved failed file {entry.name} to quarantine folder."
                     )
@@ -151,8 +168,9 @@ def main_workflow():
                     exc_info=True,
                 )
                 try:
-                    quarantine_path = f"{settings.DROPBOX_FAILED_DIR}/{entry.name}"
-                    dbx.move_file(entry.path_display, quarantine_path)
+                    from_path = entry.path_display if settings.STORAGE_PROVIDER == "dropbox" else entry.id
+                    quarantine_path = f"{failed_path}/{entry.name}" if settings.STORAGE_PROVIDER == "dropbox" else failed_path
+                    storage_client.move_file(from_path, quarantine_path)
                     logging.warning(
                         f"Moved failed file {entry.name} to quarantine folder as a precaution."
                     )
