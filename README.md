@@ -32,10 +32,14 @@ To run this application on your own machine, you'll need to provide your credent
     ```
 
 2.  **Fill in your `.env` file**:
-    Open the newly created `.env` file and provide your credentials for the following variables:
-    *   `DROPBOX_APP_KEY`
-    *   `DROPBOX_APP_SECRET`
-    *   `OPENAI_API_KEY`
+    Open the newly created `.env` file and provide your credentials for the following variables. At a minimum, you must set the secret keys and the source directory.
+    *   `DROPBOX_APP_KEY`: Your key from the Dropbox App Console.
+    *   `DROPBOX_APP_SECRET`: Your secret from the Dropbox App Console.
+    *   `OPENAI_API_KEY`: Your API key for the recognition service.
+    *   `OPENAI_BASE_URL`: The base URL for the API (defaults to a private host).
+    *   `DROPBOX_SOURCE_DIR`: The folder in your Dropbox to watch for new files (e.g., `/Apps/remarkable`).
+    *   `DROPBOX_DEST_DIR`: The folder where recognized PDFs will be uploaded.
+    *   `RECOGNITION_MODEL`: The specific AI model to use for recognition.
     You can also customize other non-secret settings in this file if needed.
 
 3.  **Generate a Dropbox Refresh Token**:
@@ -52,7 +56,7 @@ The easiest way to run the service on your local machine is with the `deploy-loc
 1.  **Find an Image Tag:** Find the latest version tag to use from the project's Docker Hub or Git repository.
 2.  **Run the Script:** Execute the script with the desired tag.
     ```shell
-    ./deploy-local.sh v1.2.4
+    ./deploy-local.sh <your_image_tag>
     ```
 This script will automatically:
 - Check for the required `.env` file.
@@ -98,8 +102,14 @@ The `deploy.sh` script is designed for deploying the application to a remote ser
 - `pdf_utils.py`: Utility for creating text-based PDFs.
 - `config.py`: Loads and provides all configuration from the environment.
 - `exceptions.py`: Defines custom exceptions for error handling.
+- `auth.py`: A utility script to generate a Dropbox refresh token.
+- `requirements.txt`: A list of all Python dependencies for the project.
+- `.env.example`: An example file for environment variable configuration.
 - `Dockerfile`: Defines the application's container image.
 - `docker-compose.yml`: Defines how to run the application service.
+- `deploy-local.sh`: A helper script for easy local deployment.
+- `deploy.sh`: A helper script for deploying to a remote server.
+
 
 ## Testing
 
