@@ -1,13 +1,18 @@
-# requirements.txt
-python-dotenv
+# requirements.in
+
+# Core application dependencies
 dropbox
-openai==2.8.1
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+openai
+pydantic-settings
 pdf2image
 reportlab
+python-dotenv
 filelock
-pydantic-settings
 
-# Development tools
-ruff
+# Development and testing dependencies
 pytest
 pytest-cov
+ruff
