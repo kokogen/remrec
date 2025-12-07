@@ -4,12 +4,12 @@ from dropbox.files import WriteMode, CommitInfo
 from dropbox.exceptions import ApiError
 import logging
 from config import get_settings
+from storage.base import StorageClient
 
 
-class DropboxClient:
+class DropboxClient(StorageClient):
     """
-    Client for interacting with the Dropbox API using the official SDK.
-    Automatically manages token refreshes.
+    Client for interacting with the Dropbox API, implementing the StorageClient interface.
     """
 
     def __init__(self, app_key, app_secret, refresh_token):
@@ -28,14 +28,14 @@ class DropboxClient:
             )
             raise
 
-    def list_files(self, path):
+    def list_files(self, folder_path: str):
         """
         Returns a list of all files in the specified Dropbox directory,
         handling pagination automatically.
         """
         try:
-            logging.info(f"Listing files in Dropbox path: '{path}'")
-            result = self.dbx.files_list_folder(path)
+            logging.info(f"Listing files in Dropbox path: '{folder_path}'")
+            result = self.dbx.files_list_folder(folder_path)
             all_entries = result.entries
             while result.has_more:
                 logging.info("Found more files, continuing listing...")
@@ -43,19 +43,19 @@ class DropboxClient:
                 all_entries.extend(result.entries)
             return all_entries
         except ApiError as e:
-            logging.error(f"Failed to list files in Dropbox path '{path}': {e}")
+            logging.error(f"Failed to list files in Dropbox path '{folder_path}': {e}")
             return []
 
-    def download_file(self, dropbox_path, local_path):
+    def download_file(self, file_path: str, local_path: str):
         """Downloads a file from Dropbox to the local filesystem."""
         try:
-            logging.info(f"Downloading {dropbox_path} to {local_path}...")
-            self.dbx.files_download_to_file(str(local_path), dropbox_path)
+            logging.info(f"Downloading {file_path} to {local_path}...")
+            self.dbx.files_download_to_file(str(local_path), file_path)
         except ApiError as e:
-            logging.error(f"Failed to download file '{dropbox_path}': {e}")
+            logging.error(f"Failed to download file '{file_path}': {e}")
             raise
 
-    def upload_file(self, local_path, dropbox_path):
+    def upload_file(self, local_path: str, remote_path: str):
         """Uploads a local file to Dropbox using chunked uploading for efficiency."""
         settings = get_settings()
         chunk_size = settings.DROPBOX_UPLOAD_CHUNK_SIZE
@@ -66,20 +66,20 @@ class DropboxClient:
             with open(local_path, "rb") as f:
                 try:
                     logging.info(
-                        f"Uploading {local_path} to {dropbox_path} (single upload)..."
+                        f"Uploading {local_path} to {remote_path} (single upload)..."
                     )
                     self.dbx.files_upload(
-                        f.read(), dropbox_path, mode=WriteMode("overwrite")
+                        f.read(), remote_path, mode=WriteMode("overwrite")
                     )
                 except ApiError as e:
-                    logging.error(f"Failed to upload file to '{dropbox_path}': {e}")
+                    logging.error(f"Failed to upload file to '{remote_path}': {e}")
                     raise
         else:
             # Use chunked upload for larger files
             with open(local_path, "rb") as f:
                 try:
                     logging.info(
-                        f"Starting chunked upload for {local_path} to {dropbox_path}..."
+                        f"Starting chunked upload for {local_path} to {remote_path}..."
                     )
                     upload_session_start_result = self.dbx.files_upload_session_start(
                         f.read(chunk_size)
@@ -89,32 +89,32 @@ class DropboxClient:
                         offset=f.tell(),
                     )
                     commit_info = CommitInfo(
-                        path=dropbox_path, mode=WriteMode("overwrite")
+                        path=remote_path, mode=WriteMode("overwrite")
                     )
 
                     while f.tell() < file_size:
                         next_chunk = f.read(chunk_size)
                         if (file_size - f.tell()) <= chunk_size:
                             # Last chunk
-                            logging.info(f"Uploading final chunk for {dropbox_path}...")
+                            logging.info(f"Uploading final chunk for {remote_path}...")
                             self.dbx.files_upload_session_finish(
                                 next_chunk, cursor, commit_info
                             )
                         else:
                             # Middle chunk
                             logging.info(
-                                f"Uploading chunk for {dropbox_path} (offset: {f.tell()})..."
+                                f"Uploading chunk for {remote_path} (offset: {f.tell()})..."
                             )
                             self.dbx.files_upload_session_append_v2(next_chunk, cursor)
                             cursor.offset = f.tell()
-                    logging.info(f"Chunked upload completed for {dropbox_path}.")
+                    logging.info(f"Chunked upload completed for {remote_path}.")
                 except ApiError as e:
                     logging.error(
-                        f"Failed to upload file to '{dropbox_path}' using chunked upload: {e}"
+                        f"Failed to upload file to '{remote_path}' using chunked upload: {e}"
                     )
                     raise
 
-    def move_file(self, from_path, to_path):
+    def move_file(self, from_path: str, to_path: str):
         """Moves a file within Dropbox."""
         try:
             logging.info(f"Moving {from_path} to {to_path}...")
@@ -123,22 +123,22 @@ class DropboxClient:
             logging.error(f"Failed to move file from '{from_path}' to '{to_path}': {e}")
             raise
 
-    def delete_file(self, path):
+    def delete_file(self, file_path: str):
         """Deletes a file or folder in Dropbox."""
         try:
-            logging.info(f"Deleting {path}...")
-            self.dbx.files_delete_v2(path)
+            logging.info(f"Deleting {file_path}...")
+            self.dbx.files_delete_v2(file_path)
         except ApiError as e:
-            logging.error(f"Failed to delete path '{path}': {e}")
+            logging.error(f"Failed to delete path '{file_path}': {e}")
             raise
 
-    def create_folder_if_not_exists(self, path):
+    def create_folder_if_not_exists(self, folder_path: str):
         """Creates a folder if it does not exist."""
         try:
-            self.dbx.files_get_metadata(path)
+            self.dbx.files_get_metadata(folder_path)
         except ApiError as e:
             if e.error.is_path() and e.error.get_path().is_not_found():
-                logging.info(f"Folder '{path}' not found. Creating...")
-                self.dbx.files_create_folder_v2(path)
+                logging.info(f"Folder '{folder_path}' not found. Creating...")
+                self.dbx.files_create_folder_v2(folder_path)
             else:
                 raise
