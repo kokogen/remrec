@@ -10,6 +10,8 @@ from config import get_settings
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
+from googleapiclient.errors import HttpError
+from exceptions import PermanentError
 
 
 class GoogleDriveClient(StorageClient):
@@ -145,43 +147,27 @@ class GoogleDriveClient(StorageClient):
             logging.error(f"Failed to move file ID '{file_id}': {e}")
             raise
 
-    def create_folder_if_not_exists(self, folder_name: str) -> str:
+    def create_folder_if_not_exists(self, folder_id: str) -> str:
         """
-        Creates a folder in Google Drive if it does not already exist.
-        Searches for a folder by name and creates it if not found.
-        Returns the ID of the existing or newly created folder.
-        
-        Note: This is a simplified implementation. Google Drive allows multiple
-        folders with the same name. A more robust implementation would manage
-        folders by their unique IDs.
-        
-        :param folder_name: The name of the folder to create.
-        :return: The ID of the folder.
+        Verifies that the provided folder_id exists and refers to an actual Google Drive folder.
+        If the folder does not exist or is not a folder, a PermanentError is raised.
+
+        :param folder_id: The ID of the Google Drive folder to verify.
+        :return: The verified folder_id.
+        :raises PermanentError: If the folder does not exist or is not a folder.
         """
         try:
-            # Search for the folder
-            response = self.service.files().list(
-                q=f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-                spaces='drive',
-                fields='files(id, name)'
-            ).execute()
-            
-            folders = response.get('files', [])
-            if folders:
-                folder_id = folders[0]['id']
-                logging.info(f"Folder '{folder_name}' already exists with ID: {folder_id}")
+            # Attempt to get metadata for the given folder_id
+            file = self.service.files().get(fileId=folder_id, fields='id, name, mimeType').execute()
+
+            if file and file.get('mimeType') == 'application/vnd.google-apps.folder':
+                logging.info(f"Google Drive folder '{file.get('name')}' with ID '{folder_id}' verified.")
                 return folder_id
             else:
-                # Create the folder
-                logging.info(f"Folder '{folder_name}' not found. Creating...")
-                file_metadata = {
-                    'name': folder_name,
-                    'mimeType': 'application/vnd.google-apps.folder'
-                }
-                folder = self.service.files().create(body=file_metadata, fields='id').execute()
-                folder_id = folder.get('id')
-                logging.info(f"Folder '{folder_name}' created with ID: {folder_id}")
-                return folder_id
-        except Exception as e:
-            logging.error(f"Failed to create or find folder '{folder_name}': {e}")
-            raise
+                raise PermanentError(f"Google Drive ID '{folder_id}' exists but is not a folder.")
+        except HttpError as e:
+            if e.resp.status == 404:
+                raise PermanentError(f"Google Drive folder with ID '{folder_id}' not found. Please check your configuration.")
+            else:
+                logging.error(f"Failed to verify Google Drive folder ID '{folder_id}': {e}")
+                raise
