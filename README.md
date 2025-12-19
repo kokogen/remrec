@@ -2,12 +2,12 @@
 
 A containerized Python application that automates the process of converting handwritten notes from a reMarkable tablet into text-based PDFs. The workflow is designed to be robust, autonomous, and easy to deploy.
 
-The application watches a specified Dropbox folder for new PDF exports, processes each one using a Gemini-based AI model for handwriting recognition (OCR), and uploads a searchable, text-based PDF back to a different Dropbox folder.
+The application watches a specified Dropbox or Google Drive folder for new PDF exports, processes each one using a Gemini-based AI model for handwriting recognition (OCR), and uploads a searchable, text-based PDF back to a different folder in the chosen cloud storage.
 
 ## Features
 
 - **Automated OCR**: Converts handwritten notes from PDF images into structured text.
-- **Dropbox Integration**: Seamlessly uses Dropbox for both input and output of files.
+- **Dropbox & Google Drive Integration**: Seamlessly uses either Dropbox or Google Drive for both input and output of files.
 - **AI-Powered**: Leverages large vision models (like Gemini) for high-accuracy handwriting recognition.
 - **Containerized**: Packaged with Docker and Docker Compose for easy, one-command deployment.
 - **Continuous & On-Demand**: Runs as a continuous service that watches for files and will support on-demand single runs for debugging.
@@ -32,22 +32,43 @@ To run this application on your own machine, you'll need to provide your credent
     ```
 
 2.  **Fill in your `.env` file**:
-    Open the newly created `.env` file and provide your credentials for the following variables. At a minimum, you must set the secret keys and the source directory.
-    *   `DROPBOX_APP_KEY`: Your key from the Dropbox App Console.
-    *   `DROPBOX_APP_SECRET`: Your secret from the Dropbox App Console.
+    Open the newly created `.env` file and provide your credentials for the following variables. At a minimum, you must set the secret keys and the source/destination directories/folder IDs.
+
+    **General Settings:**
+    *   `STORAGE_PROVIDER`: Set to either `"dropbox"` or `"gdrive"` to choose your cloud storage.
     *   `OPENAI_API_KEY`: Your API key for the recognition service.
     *   `OPENAI_BASE_URL`: The base URL for the API (defaults to a private host).
+    *   `RECOGNITION_MODEL`: The specific AI model to use for recognition.
+
+    **For Dropbox:**
+    *   `DROPBOX_APP_KEY`: Your key from the Dropbox App Console.
+    *   `DROPBOX_APP_SECRET`: Your secret from the Dropbox App Console.
     *   `DROPBOX_SOURCE_DIR`: The folder in your Dropbox to watch for new files (e.g., `/Apps/remarkable`).
     *   `DROPBOX_DEST_DIR`: The folder where recognized PDFs will be uploaded.
-    *   `RECOGNITION_MODEL`: The specific AI model to use for recognition.
+    *   `DROPBOX_FAILED_DIR`: The folder for files that failed processing.
+
+    **For Google Drive:**
+    *   `GDRIVE_CREDENTIALS_JSON`: The content of your `credentials.json` file as a single-line JSON string.
+    *   `GDRIVE_TOKEN_JSON`: The content of your `gdrive_token.json` file as a single-line JSON string. (Generated via `gdrive_auth.py`)
+    *   `GDRIVE_SOURCE_FOLDER_ID`: The ID of the Google Drive folder to watch for new files.
+    *   `GDRIVE_DEST_FOLDER_ID`: The ID of the Google Drive folder where recognized PDFs will be uploaded.
+    *   `GDRIVE_FAILED_FOLDER_ID`: The ID of the Google Drive folder for files that failed processing.
+
     You can also customize other non-secret settings in this file if needed.
 
-3.  **Generate a Dropbox Refresh Token**:
+3.  **Generate Dropbox Refresh Token (if using Dropbox)**:
     Run the interactive `auth.py` script to generate your Dropbox refresh token.
     ```shell
     docker-compose run --rm app python auth.py
     ```
     Follow the on-screen prompts. This will create a `.dropbox.token` file in your project root, which is automatically used by the application.
+
+4.  **Generate Google Drive Token (if using Google Drive)**:
+    You need to obtain a `credentials.json` file from the Google Cloud Console for a desktop application. Then, run the interactive `gdrive_auth.py` script.
+    ```bash
+    docker-compose run --rm app python gdrive_auth.py
+    ```
+    Follow the prompts to provide the path to your `credentials.json` file. This will generate a `gdrive_token.json` file in your project root. You will then need to copy the content of this `gdrive_token.json` and `credentials.json` into your `.env` file under `GDRIVE_TOKEN_JSON` and `GDRIVE_CREDENTIALS_JSON` respectively. Ensure they are single-line JSON strings.
 
 ## Running the Service Locally
 
@@ -98,11 +119,13 @@ The `deploy.sh` script is designed for deploying the application to a remote ser
 - `main.py`: The main orchestrator that schedules and triggers the workflow.
 - `processing.py`: Contains the core logic for processing a single file.
 - `dbox.py`: A client class for interacting with the Dropbox API.
+- `gdrive.py`: A client class for interacting with the Google Drive API.
 - `recognition.py`: Handles the API call to the AI model for OCR.
 - `pdf_utils.py`: Utility for creating text-based PDFs.
 - `config.py`: Loads and provides all configuration from the environment.
 - `exceptions.py`: Defines custom exceptions for error handling.
 - `auth.py`: A utility script to generate a Dropbox refresh token.
+- `gdrive_auth.py`: A utility script to generate a Google Drive token.
 - `requirements.txt`: A list of all Python dependencies for the project.
 - `.env.example`: An example file for environment variable configuration.
 - `Dockerfile`: Defines the application's container image.
@@ -122,5 +145,5 @@ The tests are located in the `tests/` directory.
 To run the complete test suite, execute the following command from the project root:
 
 ```bash
-.venv/bin/pytest -v
+docker-compose run --rm app /opt/venv/bin/pytest -v
 ```

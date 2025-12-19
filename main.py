@@ -97,7 +97,10 @@ def main_workflow():
         dest_path = settings.GDRIVE_DEST_FOLDER_ID
         failed_path = settings.GDRIVE_FAILED_FOLDER_ID
         try:
-            storage_client = GoogleDriveClient()
+            storage_client = GoogleDriveClient(
+                credentials_json=settings.GDRIVE_CREDENTIALS_JSON,
+                token_json=settings.GDRIVE_TOKEN_JSON,
+            )
         except Exception as e:
             logging.error(f"Failed to initialize Google Drive client. Error: {e}", exc_info=True)
             storage_client = None
@@ -111,9 +114,14 @@ def main_workflow():
         return
 
     # Check/create necessary folders
-    for folder in [source_path, dest_path, failed_path]:
-        if folder:
-            storage_client.create_folder_if_not_exists(folder)
+    if settings.STORAGE_PROVIDER == "dropbox":
+        for folder in [source_path, dest_path, failed_path]:
+            if folder:
+                storage_client.create_folder_if_not_exists(folder)
+    elif settings.STORAGE_PROVIDER == "gdrive":
+        for folder_id in [source_path, dest_path, failed_path]:
+            if folder_id:
+                storage_client.verify_folder_id_exists(folder_id)
 
     files_to_process = storage_client.list_files(source_path)
     if not files_to_process:
@@ -140,10 +148,8 @@ def main_workflow():
                     exc_info=True,
                 )
                 try:
-                    # For Dropbox, entry.path_display is used. For GDrive, entry.id.
-                    # The move_file method in the client should handle this.
-                    from_path = entry.path_display if settings.STORAGE_PROVIDER == "dropbox" else entry.id
-                    quarantine_path = f"{failed_path}/{entry.name}" if settings.STORAGE_PROVIDER == "dropbox" else failed_path
+                    from_path = f"{source_path}/{entry.name}"
+                    quarantine_path = f"{failed_path}/{entry.name}"
                     storage_client.move_file(from_path, quarantine_path)
                     logging.warning(
                         f"Moved failed file {entry.name} to quarantine folder."
@@ -168,8 +174,8 @@ def main_workflow():
                     exc_info=True,
                 )
                 try:
-                    from_path = entry.path_display if settings.STORAGE_PROVIDER == "dropbox" else entry.id
-                    quarantine_path = f"{failed_path}/{entry.name}" if settings.STORAGE_PROVIDER == "dropbox" else failed_path
+                    from_path = f"{source_path}/{entry.name}"
+                    quarantine_path = f"{failed_path}/{entry.name}"
                     storage_client.move_file(from_path, quarantine_path)
                     logging.warning(
                         f"Moved failed file {entry.name} to quarantine folder as a precaution."

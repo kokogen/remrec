@@ -23,8 +23,16 @@ def process_single_file(
 
     is_dropbox = settings.STORAGE_PROVIDER == "dropbox"
     
-    file_name = file_entry.name if is_dropbox else file_entry.get("name")
-    file_id = file_entry.path_display if is_dropbox else file_entry.get("id")
+    if is_dropbox:
+        file_name = file_entry.name
+        file_path = file_entry.path_display
+        source_dir = settings.DROPBOX_SOURCE_DIR
+        dest_dir = settings.DROPBOX_DEST_DIR
+    else:
+        file_name = file_entry.get("name")
+        source_dir = settings.GDRIVE_SOURCE_FOLDER_ID
+        dest_dir = settings.GDRIVE_DEST_FOLDER_ID
+        file_path = f"{source_dir}/{file_name}"
 
     local_pdf_path = settings.LOCAL_BUF_DIR / file_name
     result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_name}"
@@ -32,7 +40,7 @@ def process_single_file(
     try:
         # 1. Download the file
         try:
-            storage_client.download_file(file_id, local_pdf_path)
+            storage_client.download_file(file_path, local_pdf_path)
         except Exception as e:
             raise TransientError(f"API error during download: {e}") from e
 
@@ -76,14 +84,14 @@ def process_single_file(
 
         # 5. Upload the result
         try:
-            dest_path = f"{settings.DROPBOX_DEST_DIR}/{result_pdf_path.name}" if is_dropbox else settings.GDRIVE_DEST_FOLDER_ID
+            dest_path = f"{dest_dir}/{result_pdf_path.name}"
             storage_client.upload_file(result_pdf_path, dest_path)
         except Exception as e:
             raise TransientError(f"API error during upload: {e}") from e
 
         # 6. Delete the original file
         try:
-            storage_client.delete_file(file_id)
+            storage_client.delete_file(file_path)
         except Exception as e:
             logging.warning(
                 f"Could not delete original file {file_name} after processing. Error: {e}"

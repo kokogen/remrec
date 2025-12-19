@@ -24,12 +24,12 @@ This file provides a comprehensive overview of the **Remarkable Recognizer** pro
 This is a containerized Python application designed to automate the OCR (Optical Character Recognition) process for handwritten notes from a reMarkable tablet.
 
 The application runs as a service that:
-1.  Watches a specified source folder in a Dropbox account.
+1.  Watches a specified source folder in a Dropbox or Google Drive account.
 2.  When a new PDF file appears, it downloads the file.
 3.  Converts each page of the PDF into an image.
 4.  Sends the images to an AI vision model (like Gemini) via an OpenAI-compatible API to perform handwriting recognition.
 5.  Assembles the recognized text into a new, text-searchable PDF.
-6.  Uploads the new PDF to a specified destination folder in Dropbox.
+6.  Uploads the new PDF to a specified destination folder in Dropbox or Google Drive.
 7.  Moves the original file to a "failed" folder if processing fails, distinguishing between transient (e.g., network error) and permanent (e.g., corrupted file) errors.
 
 The architecture is modular, with clear separation of concerns, and it relies on environment variables for configuration, loaded via `pydantic`.
@@ -39,6 +39,7 @@ The architecture is modular, with clear separation of concerns, and it relies on
 - **Containerization:** Docker, Docker Compose
 - **Key Libraries:**
     - `dropbox`: For all Dropbox API interactions.
+    - `google-api-python-client`, `google-auth-oauthlib`: For Google Drive API interactions.
     - `openai`: To communicate with the AI model.
     - `pydantic-settings`: For robust configuration management.
     - `pdf2image`: To convert PDF pages to images for processing.
@@ -62,7 +63,7 @@ The application is configured using environment variables. Secret variables are 
     *   `DOCKER_USERNAME` (Your Docker Hub username)
     *   `DOCKER_HUB_ACCESS_TOKEN` (A Personal Access Token for Docker Hub with push/pull access)
 
-3.  **Generate a Dropbox Refresh Token**: You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token to `.dropbox.token` on your local machine. This `.dropbox.token` file is automatically mounted into the container.
+3.  **Generate a Dropbox Refresh Token (if using Dropbox)**: You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token to `.dropbox.token` on your local machine. This `.dropbox.token` file is automatically mounted into the container.
     ```bash
     docker-compose run --rm app python auth.py
     ```
@@ -73,6 +74,14 @@ The application is configured using environment variables. Secret variables are 
     *   Paste the full redirect URL back into your terminal.
     
     The token will be saved to `./.dropbox.token`.
+
+4.  **Generate Google Drive Token (if using Google Drive)**:
+    You need to obtain a `credentials.json` file from the Google Cloud Console for a desktop application. Then, run the interactive `gdrive_auth.py` script.
+    ```bash
+    docker-compose run --rm app python gdrive_auth.py
+    ```
+    Follow the prompts to provide the path to your `credentials.json` file. This will generate a `gdrive_token.json` file in your project root. You will then need to copy the content of this `gdrive_token.json` and `credentials.json` into your `.env` file under `GDRIVE_TOKEN_JSON` and `GDRIVE_CREDENTIALS_JSON` respectively. Ensure they are single-line JSON strings.
+
 
 ### Automated CI/CD: Build and Push Docker Image (GitHub Actions)
 
