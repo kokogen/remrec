@@ -20,26 +20,21 @@ class GoogleDriveClient(StorageClient):
     """
 
     def __init__(self, credentials_json: str, token_json: str):
-        creds = None
         try:
             creds_info = json.loads(credentials_json)
             token_info = json.loads(token_json)
 
-            # Ensure that the required scope is present
-            required_scope = "https://www.googleapis.com/auth/drive"
-            if required_scope not in creds_info.get("installed", {}).get("scopes", []):
-                creds_info["installed"]["scopes"].append(required_scope)
-
-            creds = Credentials.from_authorized_user_info(token_info, creds_info.get("installed"))
+            creds = Credentials.from_authorized_user_info(token_info)
 
             if not creds or not creds.valid:
                 if creds and creds.expired and creds.refresh_token:
-                    # If the credentials have expired, they can be refreshed.
-                    # This will be handled automatically by the google-auth library.
+                    # The google-auth-library will automatically refresh the token
                     logging.info("Google Drive credentials expired, attempting to refresh...")
                 else:
-                    # If there's no refresh token or credentials are bad, authentication will fail.
-                    raise ConnectionError("Failed to authenticate with Google Drive. Please re-run the authentication script.")
+                    raise ConnectionError(
+                        "Failed to authenticate with Google Drive. "
+                        "Please re-run the authentication script."
+                    )
             
             self.service: Resource = build('drive', 'v3', credentials=creds)
             self.folder_ids_cache = {}

@@ -16,3 +16,5 @@ filelock
 pytest
 pytest-cov
 ruff
+pip-tools
+pip-tools

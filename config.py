@@ -5,15 +5,12 @@ from typing import Optional
 import logging
 from functools import lru_cache
 
-TOKEN_STORAGE_FILE = ".dropbox.token"
-
-
-# Define all settings in one class
 class Settings(BaseSettings):
     """
     Centralized application configuration with type validation.
     Automatically reads variables from the environment and the token file.
     """
+    TOKEN_STORAGE_FILE: str = ".dropbox.token"
 
     # --- General Settings ---
     STORAGE_PROVIDER: str = "dropbox"  # "dropbox" or "gdrive"
@@ -60,7 +57,7 @@ class Settings(BaseSettings):
         After initial settings are loaded from the environment,
         try to load a refresh token from the local token file as a fallback.
         """
-        token_file = self.BASE_DIR / TOKEN_STORAGE_FILE
+        token_file = self.BASE_DIR / self.TOKEN_STORAGE_FILE
         if token_file.is_file():
             content = token_file.read_text().strip()
             if content:

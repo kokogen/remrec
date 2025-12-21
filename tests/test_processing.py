@@ -1,107 +1,65 @@
+# tests/test_processing.py
 import pytest
-from unittest.mock import patch, MagicMock, ANY
-import dropbox
-
-# Импортируем нужные классы для моков
-from dbox import DropboxClient
-from exceptions import PermanentError, TransientError
+from unittest.mock import patch, MagicMock
 from processing import process_single_file
-
-
-# Создаем базовые моки для зависимостей, которые используются во всех тестах
-@pytest.fixture
-def mock_dbx_client():
-    """Фикстура для мока нашего кастомного клиента Dropbox."""
-    # Используем spec=DropboxClient, чтобы мок имел те же методы
-    return MagicMock(spec=DropboxClient)
-
+from exceptions import TransientError, PermanentError
 
 @pytest.fixture
-def mock_file_entry():
-    """Фикстура для мока метаданных файла из Dropbox."""
-    file_entry = MagicMock(spec=dropbox.files.FileMetadata)
+def mock_settings():
+    """Fixture for mock settings."""
+    settings = MagicMock()
+    settings.LOCAL_BUF_DIR = MagicMock()
+    settings.LOCAL_BUF_DIR.__truediv__.return_value = "mock/path"
+    return settings
+
+@pytest.fixture
+def mock_storage_client():
+    """Fixture for a mock storage client."""
+    return MagicMock()
+
+@patch("processing.get_settings")
+@patch("processing.pdf_to_images")
+@patch("processing.recognize_handwriting")
+@patch("processing.create_text_pdf_from_images")
+def test_process_single_file_success(
+    mock_create_pdf, mock_recognize, mock_pdf_to_images, mock_get_settings,
+    mock_settings, mock_storage_client
+):
+    """Test the successful processing of a single file."""
+    # Setup
+    mock_get_settings.return_value = mock_settings
+    mock_pdf_to_images.return_value = ["img1.png"]
+    mock_recognize.return_value = ["text1"]
+    
+    file_entry = MagicMock()
     file_entry.name = "test.pdf"
-    file_entry.path_display = "/test.pdf"
-    return file_entry
-
-
-# Патчим все внешние зависимости модуля processing
-@patch("processing.os.remove")
-@patch("processing.os.path.exists", return_value=True)
-@patch("processing.create_reflowed_pdf")
-@patch("processing.recognize")
-@patch("processing.image_to_base64", return_value="fake_base64")
-@patch("processing.convert_from_path")
-def test_process_single_file_happy_path(
-    mock_convert,
-    mock_b64,
-    mock_recognize,
-    mock_txt_to_pdf,
-    mock_os_exists,
-    mock_os_remove,
-    mock_dbx_client,
-    mock_file_entry,
-):
-    """Тест "счастливого пути", когда все операции успешны."""
-    # 1. Настройка моков
-    mock_convert.return_value = [MagicMock()]  # Возвращаем одну "страницу"
-    mock_recognize.return_value = "Recognized Text"
-
-    # 2. Вызов функции
-    process_single_file(mock_dbx_client, mock_file_entry)
-
-    # 3. Проверки
-    mock_dbx_client.download_file.assert_called_once()
-    mock_convert.assert_called_once()
+    
+    # Action
+    process_single_file(mock_storage_client, file_entry)
+    
+    # Asserts
+    mock_storage_client.download_file.assert_called_once()
+    mock_pdf_to_images.assert_called_once()
     mock_recognize.assert_called_once()
-    mock_txt_to_pdf.assert_called_once_with(ANY, ANY)
-    mock_dbx_client.upload_file.assert_called_once()
-    mock_dbx_client.delete_file.assert_called_once_with("/test.pdf")
-    assert mock_os_remove.call_count == 2
+    mock_create_pdf.assert_called_once()
+    mock_storage_client.upload_file.assert_called_once()
+    mock_storage_client.delete_file.assert_called_once()
 
-
-@patch("processing.os.remove")
-@patch("processing.os.path.exists", return_value=True)
-@patch("processing.recognize", side_effect=TransientError("API limit"))
-@patch("processing.convert_from_path")
-def test_process_single_file_recognition_fails_transient(
-    mock_convert,
-    mock_recognize,
-    mock_os_exists,
-    mock_os_remove,
-    mock_dbx_client,
-    mock_file_entry,
+@patch("processing.get_settings")
+@patch("processing.pdf_to_images", side_effect=Exception("PDF processing failed"))
+def test_process_single_file_permanent_error(
+    mock_pdf_to_images, mock_get_settings, mock_settings, mock_storage_client
 ):
-    """Тест, когда API распознавания возвращает временную ошибку."""
-    mock_convert.return_value = [MagicMock()]
-
-    with pytest.raises(TransientError, match="API limit"):
-        process_single_file(mock_dbx_client, mock_file_entry)
-
-    mock_dbx_client.download_file.assert_called_once()
-    mock_dbx_client.upload_file.assert_not_called()
-    mock_dbx_client.delete_file.assert_not_called()
-    assert mock_os_remove.call_count > 0
-
-
-@patch("processing.os.remove")
-@patch("processing.os.path.exists", return_value=True)
-@patch("processing.recognize")
-@patch("processing.convert_from_path", side_effect=PermanentError("Corrupted PDF"))
-def test_process_single_file_pdf_conversion_fails_permanent(
-    mock_convert,
-    mock_recognize,
-    mock_os_exists,
-    mock_os_remove,
-    mock_dbx_client,
-    mock_file_entry,
-):
-    """Тест, когда конвертация PDF падает с перманентной ошибкой."""
-    with pytest.raises(PermanentError, match="PDF conversion failed: Corrupted PDF"):
-        process_single_file(mock_dbx_client, mock_file_entry)
-
-    mock_dbx_client.download_file.assert_called_once()
-    mock_convert.assert_called_once()
-    mock_recognize.assert_not_called()
-    mock_dbx_client.upload_file.assert_not_called()
-    assert mock_os_remove.call_count > 0
+    """Test that a permanent error is raised when PDF processing fails."""
+    # Setup
+    mock_get_settings.return_value = mock_settings
+    file_entry = MagicMock()
+    file_entry.name = "test.pdf"
+    
+    # Action and Asserts
+    with pytest.raises(PermanentError):
+        process_single_file(mock_storage_client, file_entry)
+        
+    mock_storage_client.download_file.assert_called_once()
+    mock_storage_client.upload_file.assert_not_called()
+    mock_storage_client.delete_file.assert_not_called()

@@ -44,6 +44,8 @@ RUN addgroup --system appuser && adduser --system --ingroup appuser appuser
 # Copy the virtual environment with all dependencies from the builder stage
 COPY --from=builder /opt/venv /opt/venv
 
+RUN /opt/venv/bin/pip install --no-cache-dir pip-tools
+
 # Copy the application code from the builder stage
 WORKDIR /app
 COPY --from=builder /app .
