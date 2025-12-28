@@ -12,7 +12,7 @@ services:
     # Specify the file with environment variables for local development
     env_file:
       - .env
-      
+
     volumes:
       - ./app.log:/app/app.log
       - ./.dropbox.token:/app/.dropbox.token

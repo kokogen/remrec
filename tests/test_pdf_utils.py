@@ -1,5 +1,4 @@
 # tests/test_pdf_utils.py
-import pytest
 from unittest.mock import patch, MagicMock
 from pdf_utils import create_text_pdf_from_images
 from pathlib import Path

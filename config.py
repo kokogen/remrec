@@ -1,5 +1,5 @@
 from pathlib import Path
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
 import logging
@@ -51,6 +51,44 @@ class Settings(BaseSettings):
 
     # --- Constants and Computed Paths ---
     BASE_DIR: Path = Path(__file__).resolve().parent
+
+    @model_validator(pre=True)
+    def clean_and_validate_storage_provider_settings(cls, values):
+        provider = values.get('STORAGE_PROVIDER')
+        if not provider:
+            # If STORAGE_PROVIDER is not in the .env file at all, let BaseSettings handle its default or error.
+            return values
+
+        if provider == "dropbox":
+            # Ensure Dropbox specific fields are present and remove GDrive specific fields
+            required_dropbox_keys = ["DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_SOURCE_DIR", "DROPBOX_DEST_DIR", "DROPBOX_FAILED_DIR"]
+            for key in required_dropbox_keys:
+                if not values.get(key):
+                    raise ValueError(f"{key} is required when STORAGE_PROVIDER is 'dropbox'")
+            
+            # Remove GDrive specific settings if they are present
+            gdrive_keys = ["GDRIVE_CREDENTIALS_JSON", "GDRIVE_TOKEN_JSON", "GDRIVE_SOURCE_FOLDER_ID", "GDRIVE_DEST_FOLDER_ID", "GDRIVE_FAILED_FOLDER_ID"]
+            for key in gdrive_keys:
+                if key in values:
+                    del values[key]
+
+        elif provider == "gdrive":
+            # Ensure GDrive specific fields are present and remove Dropbox specific fields
+            required_gdrive_keys = ["GDRIVE_CREDENTIALS_JSON", "GDRIVE_TOKEN_JSON", "GDRIVE_SOURCE_FOLDER_ID", "GDRIVE_DEST_FOLDER_ID", "GDRIVE_FAILED_FOLDER_ID"]
+            for key in required_gdrive_keys:
+                if not values.get(key):
+                    raise ValueError(f"{key} is required when STORAGE_PROVIDER is 'gdrive'")
+            
+            # Remove Dropbox specific settings if they are present
+            dropbox_keys = ["DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_REFRESH_TOKEN", "DROPBOX_SOURCE_DIR", "DROPBOX_DEST_DIR", "DROPBOX_FAILED_DIR"]
+            for key in dropbox_keys:
+                if key in values:
+                    del values[key]
+
+        else:
+            raise ValueError("Invalid STORAGE_PROVIDER. Must be 'dropbox' or 'gdrive'.")
+        
+        return values
 
     def model_post_init(self, __context):
         """

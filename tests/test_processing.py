@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from processing import process_single_file
-from exceptions import TransientError, PermanentError
+from exceptions import PermanentError
 
 @pytest.fixture
 def mock_settings():

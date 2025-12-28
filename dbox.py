@@ -132,13 +132,18 @@ class DropboxClient(StorageClient):
             logging.error(f"Failed to delete path '{file_path}': {e}")
             raise
 
-    def create_folder_if_not_exists(self, folder_path: str):
-        """Creates a folder if it does not exist."""
+    def verify_folder_exists(self, folder_path: str):
+        """
+        Verifies if a folder exists.
+        Raises an ApiError if the folder does not exist or is inaccessible.
+        """
         try:
             self.dbx.files_get_metadata(folder_path)
+            logging.info(f"Dropbox folder '{folder_path}' exists.")
         except ApiError as e:
             if e.error.is_path() and e.error.get_path().is_not_found():
-                logging.info(f"Folder '{folder_path}' not found. Creating...")
-                self.dbx.files_create_folder_v2(folder_path)
+                logging.critical(f"Configured Dropbox folder '{folder_path}' does not exist.")
+                raise # Re-raise the error to be handled upstream (e.g., in main.py)
             else:
-                raise
+                logging.error(f"Error accessing Dropbox folder '{folder_path}': {e}")
+                raise # Re-raise for other API errors (e.g., permissions)

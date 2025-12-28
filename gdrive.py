@@ -6,13 +6,11 @@ import os
 
 from storage.base import StorageClient
 from typing import List, Any
-from config import get_settings
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build, Resource
-from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
+from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from exceptions import PermanentError
-
 
 class GoogleDriveClient(StorageClient):
     """
@@ -21,23 +19,24 @@ class GoogleDriveClient(StorageClient):
 
     def __init__(self, credentials_json: str, token_json: str):
         try:
-            creds_info = json.loads(credentials_json)
             token_info = json.loads(token_json)
-
-            creds = Credentials.from_authorized_user_info(token_info)
-
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    # The google-auth-library will automatically refresh the token
-                    logging.info("Google Drive credentials expired, attempting to refresh...")
-                else:
-                    raise ConnectionError(
-                        "Failed to authenticate with Google Drive. "
-                        "Please re-run the authentication script."
-                    )
             
-            self.service: Resource = build('drive', 'v3', credentials=creds)
-            self.folder_ids_cache = {}
+            # The credentials_json can come from a file or environment variable.
+            # It should contain the client_id, client_secret, and redirect_uris.
+            credentials_data = json.loads(credentials_json)
+
+            creds = Credentials.from_authorized_user_info(info=token_info)
+
+            # Ensure that the client_id and client_secret from credentials_json are used
+            # This is important if creds was generated without these initially or if they need to be updated
+            if 'client_id' in credentials_data and 'client_secret' in credentials_data:
+                creds.client_id = credentials_data['client_id']
+                creds.client_secret = credentials_data['client_secret']
+            else:
+                logging.warning("client_id or client_secret not found in GDRIVE_CREDENTIALS_JSON. Using existing from token_json if available.")
+
+
+            self.service = build("drive", "v3", credentials=creds)
             logging.info("Google Drive client initialized successfully.")
         except Exception as e:
             logging.error(f"Failed to initialize Google Drive client. Error: {e}")
@@ -94,7 +93,7 @@ class GoogleDriveClient(StorageClient):
             self.folder_ids_cache[current_path] = folder_id
             current_parent_id = folder_id
 
-        self.folder_ids_cache[folder_path] = current_parent_id
+        self.folder_ids_cache[current_path] = folder_id
         return current_parent_id
 
     def _find_file_id_by_name(self, filename: str, folder_id: str) -> str | None:
@@ -224,30 +223,27 @@ class GoogleDriveClient(StorageClient):
             logging.error(f"Failed to move file from '{from_path}' to '{to_path}': {e}")
             raise
 
-    def verify_folder_id_exists(self, folder_id: str) -> str:
+    def verify_folder_exists(self, folder_path: str):
         """
-        Verifies that the provided folder_id exists and refers to an actual Google Drive folder.
-        If the folder does not exist or is not a folder, a PermanentError is raised.
-
-        :param folder_id: The ID of the Google Drive folder to verify.
-        :return: The verified folder_id.
-        :raises PermanentError: If the folder does not exist or is not a folder.
+        Verifies if a folder with a given ID exists and is actually a folder.
+        The `folder_path` parameter is treated as a folder ID for Google Drive.
+        
+        Raises:
+            PermanentError: If the ID does not exist, or if the item is not a folder.
         """
         try:
-            # Attempt to get metadata for the given folder_id
-            file = self.service.files().get(fileId=folder_id, fields='id, name, mimeType').execute()
-
-            if file and file.get('mimeType') == 'application/vnd.google-apps.folder':
-                logging.info(f"Google Drive folder '{file.get('name')}' with ID '{folder_id}' verified.")
-                return folder_id
+            file = self.service.files().get(fileId=folder_path, fields='id, mimeType').execute()
+            if file.get('mimeType') == 'application/vnd.google-apps.folder':
+                logging.info(f"Google Drive folder with ID '{folder_path}' exists and is a folder.")
+                return folder_path
             else:
-                raise PermanentError(f"Google Drive ID '{folder_id}' exists but is not a folder.")
+                raise PermanentError(f"Google Drive ID '{folder_path}' exists but is not a folder.")
         except HttpError as e:
             if e.resp.status == 404:
-                raise PermanentError(f"Google Drive folder with ID '{folder_id}' not found. Please check your configuration.")
+                raise PermanentError(f"Google Drive folder with ID '{folder_path}' not found. Please check your configuration.")
             else:
-                logging.error(f"Failed to verify Google Drive folder ID '{folder_id}': {e}")
-                raise
+                logging.error(f"Failed to verify Google Drive folder ID '{folder_path}': {e}")
+                raise PermanentError(f"API error while verifying folder ID '{folder_path}': {e}")
 
     def create_folder_if_not_exists(self, folder_path: str):
         pass

@@ -17,3 +17,5 @@ grbg/
 improvement_plan.md
 .gemini/
 gha-creds-*.json
+credentials.json
+gdrive_token.json

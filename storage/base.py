@@ -60,10 +60,11 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def create_folder_if_not_exists(self, folder_path: str):
+    def verify_folder_exists(self, folder_path: str):
         """
-        Creates a folder if it does not already exist.
+        Verifies if a folder exists at the given path/ID.
+        Raises an error if the folder does not exist or is inaccessible.
 
-        :param folder_path: The path or ID of the folder to create.
+        :param folder_path: The path or ID of the folder to verify.
         """
         pass
