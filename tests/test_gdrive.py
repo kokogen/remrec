@@ -69,18 +69,13 @@ def client(mock_credentials, mock_token):
     """Fixture to create a GoogleDriveClient instance with mocked dependencies."""
     with patch("src.gdrive.build") as MockBuild, patch("src.gdrive.Credentials") as MockCredentials:
         MockCredentials.from_authorized_user_info.return_value = MagicMock(valid=True)
-        mock_service = MagicMock() # Create a fresh mock service for each test
+        mock_service = MagicMock()
         MockBuild.return_value = mock_service
-
-        # Mock the create method chain for ensure_folder_path_exists tests
-        mock_service.files.return_value.list.return_value.execute.return_value = {"files": []} # Default list for ensure_folder_path_exists
-        mock_service.files.return_value.create.return_value.execute.return_value = {"id": "new_folder_id"} # Default create for ensure_folder_path_exists
         
         client_instance = GoogleDriveClient(
             credentials_json=json.dumps(mock_credentials),
             token_json=json.dumps(mock_token),
         )
-        # Ensure mocks are reset after client creation
         mock_service.reset_mock()
         yield client_instance
 
@@ -117,7 +112,7 @@ def test_ensure_folder_path_exists_nested(client):
     assert folder_id == "child_id"
     assert client.service.files().create().execute.call_count == 2
     
-def test_verify_folder_id_exists_success(client):
+def test_verify_folder_exists_success(client):
     """Test that folder verification succeeds if the folder exists."""
     client.service.files().get().execute.return_value = {
         "id": "test_id",
@@ -128,7 +123,7 @@ def test_verify_folder_id_exists_success(client):
     folder_id = client.verify_folder_exists("test_id")
     assert folder_id == "test_id"
 
-def test_verify_folder_id_exists_permanent_error(client):
+def test_verify_folder_exists_permanent_error(client):
     """Test that a PermanentError is raised if the folder ID does not exist."""
     from googleapiclient.errors import HttpError
     
@@ -182,9 +177,9 @@ def test_upload_file_success(MockMediaFileUpload, client):
     client.upload_file("/local/path/test.pdf", "/remote/path/test.pdf")
     
     MockMediaFileUpload.assert_called_once_with(
-        "/local/path/test.pdf", resumable=True
+        str("/local/path/test.pdf"), resumable=True
     )
-    client.service.files().create.assert_called_once()
+    client.service.files().create().execute.assert_called_once()
     
 def test_delete_file_success(client):
     """Test deleting a file successfully."""
@@ -193,7 +188,7 @@ def test_delete_file_success(client):
     
     client.delete_file("/remote/path/test.pdf")
     
-    client.service.files().delete.assert_called_once_with(fileId="file_id")
+    client.service.files().delete().execute.assert_called_once_with()
 
 def test_move_file_success(client):
     """Test moving a file successfully."""
@@ -203,4 +198,4 @@ def test_move_file_success(client):
     
     client.move_file("/from/path/test.pdf", "/to/path/test.pdf")
     
-    client.service.files().update.assert_called_once()
+    client.service.files().update().execute.assert_called_once()

@@ -23,25 +23,26 @@ def gdrive_authenticate():
             creds_data = json.load(token_file)
             creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
 
-            # If there are no (valid) credentials available, let the user log in.
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                else:
-                    # Prompt the user for the path to their credentials.json file
-                    creds_path = input("Please enter the path to your credentials.json file: ")                if not os.path.exists(creds_path):
-                    print("Error: The provided path to credentials.json is invalid.")
-                    return
-                with open(creds_path, "r") as token_file:
-                    creds_data = json.load(token_file) # Initialize creds_data here
-            
-                flow = InstalledAppFlow.from_client_config(creds_data, SCOPES)
-                creds = flow.run_local_server(port=0)
-            
-            # Save the credentials for the next run
-            with open(token_path, "w") as token_file:
-                token_file.write(creds.to_json())
-            print(f"Token saved to {token_path}")
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            # Prompt the user for the path to their credentials.json file
+            creds_path = input("Please enter the path to your credentials.json file: ")
+            if not os.path.exists(creds_path):
+                print("Error: The provided path to credentials.json is invalid.")
+                return
+            with open(creds_path, "r") as token_file:
+                creds_data = json.load(token_file)
+
+            flow = InstalledAppFlow.from_client_config(creds_data, SCOPES)
+            creds = flow.run_local_server(port=0)
+
+        # Save the credentials for the next run
+        with open(token_path, "w") as token_file:
+            token_file.write(creds.to_json())
+        print(f"Token saved to {token_path}")
     
     if __name__ == "__main__":
         gdrive_authenticate()

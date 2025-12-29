@@ -3,13 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from src.recognition import recognize
 
-@pytest.fixture
-def mock_settings():
-    """Fixture for mock settings."""
-    settings = MagicMock()
-    settings.RECOGNITION_PROMPT = "Recognize this"
-    settings.RECOGNITION_MODEL = "gemini-pro-vision"
-    return settings
+# The mock_settings fixture is now in conftest.py
 
 @patch("src.recognition.get_settings")
 @patch("src.recognition.OpenAI")

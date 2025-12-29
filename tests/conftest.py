@@ -15,6 +15,7 @@ def mock_settings():
     This avoids the need for environment variables during tests.
     """
     settings = MagicMock(spec=Settings)
+    settings.STORAGE_PROVIDER = "dropbox"
     settings.DROPBOX_APP_KEY = "test_key"
     settings.DROPBOX_APP_SECRET = "test_secret"
     settings.OPENAI_API_KEY = "test_api_key"
@@ -46,6 +47,12 @@ def mock_settings():
     settings.LOG_FILE = Path("/tmp/app.log")
 
     return settings
+
+
+@pytest.fixture
+def mock_storage_client():
+    """Fixture for a mock storage client."""
+    return MagicMock()
 
 
 @pytest.fixture(autouse=True)

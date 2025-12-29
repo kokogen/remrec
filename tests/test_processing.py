@@ -1,60 +1,50 @@
 # tests/test_processing.py
 import pytest
 from unittest.mock import patch, MagicMock
+from pathlib import Path
 from src.processing import process_single_file
 from src.exceptions import PermanentError
 
-@pytest.fixture
-def mock_settings():
-    """Fixture for mock settings."""
-    settings = MagicMock()
-    settings.LOCAL_BUF_DIR = MagicMock()
-    settings.LOCAL_BUF_DIR.__truediv__.return_value = "mock/path"
-    return settings
+# Fixtures for mock_settings and mock_storage_client can be used from conftest.py
 
-@pytest.fixture
-def mock_storage_client():
-    """Fixture for a mock storage client."""
-    return MagicMock()
-
+@patch("src.processing.os.path.exists", return_value=True)
 @patch("src.processing.os.remove")
 @patch("src.processing.get_settings")
 @patch("src.processing.convert_from_path")
 @patch("src.processing.recognize")
 @patch("src.processing.create_reflowed_pdf")
 def test_process_single_file_success(
-    mock_create_pdf, mock_recognize, mock_pdf_to_images, mock_get_settings,
-    mock_settings, mock_storage_client, mock_os_remove
+    mock_create_pdf, mock_recognize, mock_convert_from_path, mock_get_settings, mock_os_remove, mock_path_exists,
+    mock_settings, mock_storage_client
 ):
     """Test the successful processing of a single file."""
     # Setup
     mock_get_settings.return_value = mock_settings
-    mock_pdf_to_images.return_value = [MagicMock()]
-    mock_recognize.return_value = ["text1"]
+    mock_convert_from_path.return_value = [MagicMock()]
+    mock_recognize.return_value = "text1"
     
     file_entry = MagicMock()
     file_entry.name = "test.pdf"
     
-    # Mock result_pdf_path to be a mock object with a .name attribute
-    mock_result_pdf_path = MagicMock()
-    mock_result_pdf_path.name = "recognized_test.pdf"
-    mock_settings.LOCAL_BUF_DIR.__truediv__.return_value = mock_result_pdf_path
+    # Mock LOCAL_BUF_DIR to be a real Path object for the test
+    mock_settings.LOCAL_BUF_DIR = Path("/tmp/buf")
     
     # Action
     process_single_file(mock_storage_client, file_entry)
     
     # Asserts
     mock_storage_client.download_file.assert_called_once()
-    mock_pdf_to_images.assert_called_once()
+    mock_convert_from_path.assert_called_once()
     mock_recognize.assert_called_once()
     mock_create_pdf.assert_called_once()
     mock_storage_client.upload_file.assert_called_once()
     mock_storage_client.delete_file.assert_called_once()
+    assert mock_os_remove.call_count == 2 # local_pdf_path and result_pdf_path
 
 @patch("src.processing.get_settings")
-@patch("pdf2image.convert_from_path", side_effect=Exception("PDF processing failed"))
+@patch("src.processing.convert_from_path", side_effect=Exception("PDF processing failed"))
 def test_process_single_file_permanent_error(
-    mock_pdf_to_images, mock_get_settings, mock_settings, mock_storage_client
+    mock_convert_from_path, mock_get_settings, mock_settings, mock_storage_client
 ):
     """Test that a permanent error is raised when PDF processing fails."""
     # Setup
