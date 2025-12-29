@@ -47,14 +47,16 @@ COPY --from=builder /opt/venv /opt/venv
 RUN /opt/venv/bin/pip install --no-cache-dir pip-tools
 
 # Copy the application code from the builder stage
+
 WORKDIR /app
+
 COPY --from=builder /app .
-
-
 
 # Set the correct owner for all application files
 RUN chown -R appuser:appuser /app
 
+# Set PYTHONPATH to include the /app directory
+ENV PYTHONPATH=/app
 
 # Set the PATH to use Python from our venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -63,4 +65,4 @@ ENV PATH="/opt/venv/bin:$PATH"
 USER appuser
 
 # Start the main application loop
-CMD ["python", "src/main.py"]
+CMD ["python", "-m", "src.main"]

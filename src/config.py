@@ -108,7 +108,7 @@ class Settings(BaseSettings):
 
     @property
     def FONT_PATH(self) -> Path:
-        return self.BASE_DIR / "DejaVuSans.ttf"
+        return self.BASE_DIR.parent / "DejaVuSans.ttf"
 
     @property
     def LOG_FILE(self) -> Path:

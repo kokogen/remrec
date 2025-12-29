@@ -126,19 +126,12 @@ class GoogleDriveClient(StorageClient):
             logging.error(f"Failed to list files in Google Drive folder ID '{folder_id}': {e}")
             return []
 
-    def download_file(self, file_path: str, local_path: str):
+    def download_file(self, file_id: str, local_path: str):
         """
-        Downloads a file from Google Drive to the local filesystem.
+        Downloads a file from Google Drive to the local filesystem using its file ID.
         """
-        folder_path, filename = os.path.split(file_path)
-        folder_id = self.ensure_folder_path_exists(folder_path) # Ensure folder exists and get its ID
-        file_id = self._find_file_id_by_name(filename, folder_id)
-
-        if not file_id:
-            raise FileNotFoundError(f"File '{filename}' not found in '{folder_path}'.")
-
         try:
-            logging.info(f"Downloading {file_path} to {local_path}...")
+            logging.info(f"Downloading file with ID '{file_id}' to {local_path}...")
             request = self.service.files().get_media(fileId=file_id)
             fh = io.FileIO(str(local_path), "wb")
             downloader = MediaIoBaseDownload(fh, request)
@@ -146,82 +139,87 @@ class GoogleDriveClient(StorageClient):
             while not done:
                 status, done = downloader.next_chunk()
         except HttpError as e:
-            logging.error(f"Failed to download file '{file_path}': {e}")
-            raise
+            # Check if the error is due to file not found (e.g., 404)
+            if e.resp.status == 404:
+                raise FileNotFoundError(f"File with ID '{file_id}' not found in Google Drive.") from e
+            else:
+                logging.error(f"Failed to download file with ID '{file_id}': {e}")
+                raise
 
     def upload_file(self, local_path: str, remote_path: str):
         """
         Uploads a local file to a specified path in Google Drive.
+        For GDrive, remote_path is expected to be 'folder_id/filename'.
         """
-        folder_path, filename = os.path.split(remote_path)
-        folder_id = self.ensure_folder_path_exists(folder_path) # Ensure folder exists and get its ID
+        folder_id, filename = os.path.split(remote_path)
+        
+        # We assume folder_id is a valid ID and exists, as it's verified in main_workflow.
         
         # Check if a file with the same name already exists to avoid duplicates
         existing_file_id = self._find_file_id_by_name(filename, folder_id)
         if existing_file_id:
-            logging.info(f"File '{filename}' already exists. Deleting before upload.")
-            self.delete_file(remote_path) # Use the path-based delete
+            logging.info(f"File '{filename}' already exists in folder {folder_id}. Deleting before upload.")
+            self.delete_file(existing_file_id)
 
         try:
             file_metadata = {"name": filename, "parents": [folder_id]}
             media = MediaFileUpload(str(local_path), resumable=True)
             
-            logging.info(f"Uploading {local_path} to {remote_path}...")
+            logging.info(f"Uploading {local_path} to folder ID {folder_id} with name {filename}...")
             self.service.files().create(
                 body=file_metadata, media_body=media, fields="id"
             ).execute()
+            logging.info(f"Successfully uploaded {filename} to folder ID: {folder_id}.")
         except HttpError as e:
-            logging.error(f"Failed to upload file to '{remote_path}': {e}")
+            logging.error(f"Failed to upload file to folder ID '{folder_id}': {e}")
             raise
 
-    def delete_file(self, file_path: str):
+    def delete_file(self, file_id: str):
         """
-        Deletes a file from Google Drive by its full path.
+        Deletes a file from Google Drive by its file ID.
         """
-        folder_path, filename = os.path.split(file_path)
-        folder_id = self.ensure_folder_path_exists(folder_path) # Ensure folder exists and get its ID
-        file_id = self._find_file_id_by_name(filename, folder_id)
-
-        if not file_id:
-            logging.warning(f"File '{filename}' not found in '{folder_path}'. Nothing to delete.")
-            return
-
         try:
-            logging.info(f"Deleting {file_path}...")
+            logging.info(f"Deleting file with ID '{file_id}'...")
             self.service.files().delete(fileId=file_id).execute()
         except HttpError as e:
-            logging.error(f"Failed to delete file '{file_path}': {e}")
-            raise
+            if e.resp.status == 404:
+                logging.warning(f"File with ID '{file_id}' not found. Nothing to delete.")
+                return
+            else:
+                logging.error(f"Failed to delete file with ID '{file_id}': {e}")
+                raise
 
     def move_file(self, from_path: str, to_path: str):
         """
         Moves a file to a different folder in Google Drive.
+        For GDrive, from_path is 'source_folder_id/filename' and to_path is 'dest_folder_id/filename'.
         """
-        from_folder_path, from_filename = os.path.split(from_path)
-        to_folder_path, to_filename = os.path.split(to_path)
+        from_folder_id, from_filename = os.path.split(from_path)
+        to_folder_id, to_filename = os.path.split(to_path)
 
-        from_folder_id = self.ensure_folder_path_exists(from_folder_path)
-        to_folder_id = self.ensure_folder_path_exists(to_folder_path)
-        
+        # Find the file to move
         file_id = self._find_file_id_by_name(from_filename, from_folder_id)
 
         if not file_id:
-            raise FileNotFoundError(f"Source file '{from_filename}' not found in '{from_folder_path}'.")
+            raise FileNotFoundError(f"Source file '{from_filename}' not found in folder ID '{from_folder_id}'.")
 
         try:
-            logging.info(f"Moving {from_path} to {to_path}...")
+            logging.info(f"Moving file '{from_filename}' from folder {from_folder_id} to folder {to_folder_id}...")
+            # Retrieve the existing parents to remove them
             file = self.service.files().get(fileId=file_id, fields='parents').execute()
             previous_parents = ",".join(file.get('parents'))
             
+            # Move the file by updating its parents
             self.service.files().update(
                 fileId=file_id,
                 addParents=to_folder_id,
                 removeParents=previous_parents,
-                body={"name": to_filename},
+                body={"name": to_filename}, # Also handles renaming if to_filename is different
                 fields="id, parents",
             ).execute()
+            logging.info(f"Successfully moved '{from_filename}' to folder ID '{to_folder_id}'.")
         except HttpError as e:
-            logging.error(f"Failed to move file from '{from_path}' to '{to_path}': {e}")
+            logging.error(f"Failed to move file from folder '{from_folder_id}' to '{to_folder_id}': {e}")
             raise
 
     def verify_folder_exists(self, folder_path: str):

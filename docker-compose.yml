@@ -8,11 +8,13 @@ services:
     
     # The name of the image that will be built
     image: kokogen/remrec:${REMREC_IMAGE_TAG:-latest}
+    build: . # <--- ADDED: Build from the current directory (where Dockerfile is located)
     
     # Specify the file with environment variables for local development
     env_file:
       - .env
-
+    environment:
+      PYTHONPATH: /app
     volumes:
       - ./app.log:/app/app.log
       - ./.dropbox.token:/app/.dropbox.token

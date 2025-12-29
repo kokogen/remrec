@@ -28,11 +28,12 @@ def process_single_file(
         file_path = file_entry.path_display
         source_dir = settings.DROPBOX_SOURCE_DIR
         dest_dir = settings.DROPBOX_DEST_DIR
-    else:
+    else: # Google Drive
         file_name = file_entry.get("name")
         source_dir = settings.GDRIVE_SOURCE_FOLDER_ID
         dest_dir = settings.GDRIVE_DEST_FOLDER_ID
-        file_path = f"{source_dir}/{file_name}"
+        file_id = file_entry.get("id") # Use the file ID directly
+        # file_path is not used for Google Drive download/delete anymore
 
     local_pdf_path = settings.LOCAL_BUF_DIR / file_name
     result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_name}"
@@ -40,7 +41,10 @@ def process_single_file(
     try:
         # 1. Download the file
         try:
-            storage_client.download_file(file_path, local_pdf_path)
+            if is_dropbox:
+                storage_client.download_file(file_path, local_pdf_path)
+            else: # Google Drive
+                storage_client.download_file(file_id, local_pdf_path) # Pass file_id
         except Exception as e:
             raise TransientError(f"API error during download: {e}") from e
 
@@ -91,7 +95,10 @@ def process_single_file(
 
         # 6. Delete the original file
         try:
-            storage_client.delete_file(file_path)
+            if is_dropbox:
+                storage_client.delete_file(file_path)
+            else: # Google Drive
+                storage_client.delete_file(file_id) # Use file_id for Google Drive
         except Exception as e:
             logging.warning(
                 f"Could not delete original file {file_name} after processing. Error: {e}"
