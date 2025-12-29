@@ -62,9 +62,23 @@ class Settings(BaseSettings):
         if provider == "dropbox":
             # Ensure Dropbox specific fields are present and remove GDrive specific fields
             required_dropbox_keys = ["DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_SOURCE_DIR", "DROPBOX_DEST_DIR", "DROPBOX_FAILED_DIR"]
+            
+            # Check for refresh token, either via env var or file (which is handled later)
+            has_refresh_token = (
+                values.get("DROPBOX_REFRESH_TOKEN") is not None and str(values.get("DROPBOX_REFRESH_TOKEN")).strip() != ""
+            )
+            # The model_post_init handles DROPBOX_REFRESH_TOKEN_FILE as a fallback.
+            # Here we only validate the env var. If neither env var nor file is present, the client will fail later.
+            if not has_refresh_token:
+                logging.warning("DROPBOX_REFRESH_TOKEN not found in environment. Will attempt to load from .dropbox.token file.")
+
             for key in required_dropbox_keys:
-                if not values.get(key):
-                    raise ValueError(f"{key} is required when STORAGE_PROVIDER is 'dropbox'")
+                if key == "DROPBOX_SOURCE_DIR":
+                    # Allow empty string for source dir, which means Dropbox root
+                    if values.get(key) is None:
+                        raise ValueError(f"{key} is required when STORAGE_PROVIDER is 'dropbox'")
+                elif not values.get(key) or not str(values.get(key)).strip():
+                    raise ValueError(f"{key} is required and cannot be empty when STORAGE_PROVIDER is 'dropbox'")
             
             # Remove GDrive specific settings if they are present
             gdrive_keys = ["GDRIVE_CREDENTIALS_JSON", "GDRIVE_TOKEN_JSON", "GDRIVE_SOURCE_FOLDER_ID", "GDRIVE_DEST_FOLDER_ID", "GDRIVE_FAILED_FOLDER_ID"]
