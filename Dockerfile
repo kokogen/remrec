@@ -63,4 +63,4 @@ ENV PATH="/opt/venv/bin:$PATH"
 USER appuser
 
 # Start the main application loop
-CMD ["python", "main.py"]
+CMD ["python", "src/main.py"]

@@ -65,7 +65,7 @@ The application is configured using environment variables. Secret variables are 
 
 3.  **Generate a Dropbox Refresh Token (if using Dropbox)**: You can generate your refresh token by running the application with a special command. This interactive process will guide you through authenticating with Dropbox in your browser and will then automatically save the refresh token to `.dropbox.token` on your local machine. This `.dropbox.token` file is automatically mounted into the container.
     ```bash
-    docker-compose run --rm app python auth.py
+    docker-compose run --rm app python src/auth.py
     ```
     Follow the prompts:
     *   The script will print a URL. Copy and paste it into your browser.
@@ -78,7 +78,7 @@ The application is configured using environment variables. Secret variables are 
 4.  **Generate Google Drive Token (if using Google Drive)**:
     You need to obtain a `credentials.json` file from the Google Cloud Console for a desktop application. Then, run the interactive `gdrive_auth.py` script.
     ```bash
-    docker-compose run --rm app python gdrive_auth.py
+    docker-compose run --rm app python src/gdrive_auth.py
     ```
     Follow the prompts to provide the path to your `credentials.json` file. This will generate a `gdrive_token.json` file in your project root. You will then need to copy the content of this `gdrive_token.json` and `credentials.json` into your `.env` file under `GDRIVE_TOKEN_JSON` and `GDRIVE_CREDENTIALS_JSON` respectively. Ensure they are single-line JSON strings.
 
@@ -113,7 +113,7 @@ Logs are also written to `app.log`, which is mounted to the host machine via the
 ### Running a One-Time Task
 For debugging or to process all files in the source folder immediately, use the `--run-once` flag:
 ```bash
-docker-compose run --rm app python main.py --run-once
+docker-compose run --rm app python src/main.py --run-once
 ```
 
 ### Stopping the Application

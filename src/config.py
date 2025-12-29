@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     # --- Constants and Computed Paths ---
     BASE_DIR: Path = Path(__file__).resolve().parent
 
-    @model_validator(pre=True)
+    @model_validator(mode='before')
     def clean_and_validate_storage_provider_settings(cls, values):
         provider = values.get('STORAGE_PROVIDER')
         if not provider:

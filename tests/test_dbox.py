@@ -4,10 +4,10 @@ from unittest.mock import patch, ANY, MagicMock
 from dropbox.exceptions import ApiError
 from dropbox.files import ListFolderResult, FileMetadata
 
-from dbox import DropboxClient
+from src.dbox import DropboxClient
 
 
-@patch("dbox.dropbox.Dropbox")
+@patch("src.dbox.dropbox.Dropbox")
 def test_dropbox_client_init_success(MockDropbox):
     """Тест успешной инициализации клиента."""
     # 1. Настройка
@@ -24,7 +24,7 @@ def test_dropbox_client_init_success(MockDropbox):
     assert client.dbx == mock_dbx_instance
 
 
-@patch("dbox.dropbox.Dropbox", side_effect=Exception("Auth failed"))
+@patch("src.dbox.dropbox.Dropbox", side_effect=Exception("Auth failed"))
 def test_dropbox_client_init_failure(MockDropbox):
     """Тест неудачной инициализации клиента."""
     with pytest.raises(Exception, match="Auth failed"):
@@ -34,7 +34,7 @@ def test_dropbox_client_init_failure(MockDropbox):
 @pytest.fixture
 def client():
     """Фикстура, которая создает экземпляр клиента с замоканным SDK."""
-    with patch("dbox.dropbox.Dropbox") as MockDropbox:
+    with patch("src.dbox.dropbox.Dropbox") as MockDropbox:
         mock_dbx_instance = MockDropbox.return_value
         client_instance = DropboxClient("key", "secret", "token")
         # Сбрасываем счетчики вызовов после инициализации для чистоты тестов

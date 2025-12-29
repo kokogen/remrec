@@ -3,12 +3,12 @@ import logging
 import time
 from typing import Optional, Tuple
 
-from config import get_settings
-from dbox import DropboxClient
-from gdrive import GoogleDriveClient
-from storage.base import StorageClient
-from exceptions import PermanentError, TransientError
-from processing import process_single_file
+from .config import get_settings
+from .dbox import DropboxClient
+from .gdrive import GoogleDriveClient
+from .storage.base import StorageClient
+from .exceptions import PermanentError, TransientError
+from .processing import process_single_file
 
 
 def setup_logging():

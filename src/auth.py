@@ -5,7 +5,7 @@ import base64
 import webbrowser
 import urllib.parse
 import requests
-from config import get_settings
+from .config import get_settings
 
 TOKEN_STORAGE_FILE = ".dropbox.token"
 

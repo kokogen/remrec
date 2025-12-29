@@ -3,7 +3,7 @@ import base64
 import io
 import logging
 from openai import OpenAI
-from config import get_settings
+from .config import get_settings
 
 # Global variable to hold the client instance.
 # Using a private-like name to discourage direct access.

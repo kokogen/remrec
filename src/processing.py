@@ -5,11 +5,11 @@ import openai
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
 from typing import Any
 
-from config import get_settings
-from storage.base import StorageClient
-from exceptions import PermanentError, TransientError
-from recognition import image_to_base64, recognize
-from pdf_utils import create_reflowed_pdf
+from .config import get_settings
+from .storage.base import StorageClient
+from .exceptions import PermanentError, TransientError
+from .recognition import image_to_base64, recognize
+from .pdf_utils import create_reflowed_pdf
 
 
 def process_single_file(

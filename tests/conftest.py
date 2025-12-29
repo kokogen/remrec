@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Since we refactored config.py, we can now safely import the Settings class
 # without triggering the validation error.
-from config import Settings, get_settings
+from src.config import Settings, get_settings
 
 
 @pytest.fixture
@@ -59,4 +59,4 @@ def patch_settings_class(monkeypatch, mock_settings):
     # We also need to clear the cache on get_settings, because it might have been
     # called and cached a real instance during test collection.
     get_settings.cache_clear()
-    monkeypatch.setattr("config.Settings", lambda *args, **kwargs: mock_settings)
+    monkeypatch.setattr("src.config.Settings", lambda *args, **kwargs: mock_settings)

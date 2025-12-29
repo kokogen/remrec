@@ -1,6 +1,6 @@
 # pdf_utils.py
 import logging
-from config import get_settings
+from .config import get_settings
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -30,7 +30,7 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     custom_style = ParagraphStyle(
         name="CustomStyle",
         parent=styles["Normal"],
-        fontName="DejaVuSans",
+        fontName="Helvetica",
         fontSize=11,
         leading=14,
     )

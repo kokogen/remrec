@@ -4,13 +4,13 @@ import json
 import io
 import os
 
-from storage.base import StorageClient
+from .storage.base import StorageClient
 from typing import List, Any
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
-from exceptions import PermanentError
+from .exceptions import PermanentError
 
 class GoogleDriveClient(StorageClient):
     """
@@ -37,6 +37,7 @@ class GoogleDriveClient(StorageClient):
 
 
             self.service = build("drive", "v3", credentials=creds)
+            self.folder_ids_cache = {} # Initialize cache
             logging.info("Google Drive client initialized successfully.")
         except Exception as e:
             logging.error(f"Failed to initialize Google Drive client. Error: {e}")
@@ -113,7 +114,7 @@ class GoogleDriveClient(StorageClient):
         """
         Lists all files in a given Google Drive folder ID.
         """
-        self.verify_folder_id_exists(folder_id)
+        self.verify_folder_exists(folder_id)
         try:
             logging.info(f"Listing files in Google Drive folder ID: '{folder_id}'")
             response = self.service.files().list(

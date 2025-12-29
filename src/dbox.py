@@ -3,8 +3,8 @@ import dropbox
 from dropbox.files import WriteMode, CommitInfo
 from dropbox.exceptions import ApiError
 import logging
-from config import get_settings
-from storage.base import StorageClient
+from .config import get_settings
+from .storage.base import StorageClient
 
 
 class DropboxClient(StorageClient):

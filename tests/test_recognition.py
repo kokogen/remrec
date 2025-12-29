@@ -1,7 +1,7 @@
 # tests/test_recognition.py
 import pytest
 from unittest.mock import patch, MagicMock
-from recognition import recognize_handwriting
+from src.recognition import recognize
 
 @pytest.fixture
 def mock_settings():
@@ -11,10 +11,10 @@ def mock_settings():
     settings.RECOGNITION_MODEL = "gemini-pro-vision"
     return settings
 
-@patch("recognition.get_settings")
-@patch("recognition.OpenAI")
-def test_recognize_handwriting_success(MockOpenAI, mock_get_settings, mock_settings):
-    """Test successful handwriting recognition."""
+@patch("src.recognition.get_settings")
+@patch("src.recognition.OpenAI")
+def test_recognize_success(MockOpenAI, mock_get_settings, mock_settings):
+    """Test successful recognition."""
     # Setup
     mock_get_settings.return_value = mock_settings
     mock_openai_client = MockOpenAI.return_value
@@ -24,9 +24,8 @@ def test_recognize_handwriting_success(MockOpenAI, mock_get_settings, mock_setti
     mock_openai_client.chat.completions.create.return_value = mock_response
     
     # Action
-    with patch("builtins.open", new_callable=pytest.mock.mock_open, read_data=b"imagedata"):
-        texts = recognize_handwriting(["img1.png"])
+    recognized_text = recognize("fake_base64_string")
     
     # Asserts
-    assert texts == ["Recognized text"]
+    assert recognized_text == "Recognized text"
     mock_openai_client.chat.completions.create.assert_called_once()
