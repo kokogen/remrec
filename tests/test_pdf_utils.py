@@ -1,7 +1,5 @@
 # tests/test_pdf_utils.py
-import pytest
-from unittest.mock import patch, MagicMock, ANY
-from pathlib import Path
+from unittest.mock import patch, ANY
 
 from src.pdf_utils import create_reflowed_pdf
 

@@ -1,5 +1,4 @@
 # tests/test_gdrive_auth.py
-import pytest
 from unittest.mock import patch, MagicMock, mock_open, call
 from src.gdrive_auth import gdrive_authenticate
 
@@ -40,6 +39,6 @@ def test_gdrive_authenticate_existing_token(mock_creds_from_info, mock_exists):
     mock_creds = MagicMock(valid=True)
     mock_creds_from_info.return_value = mock_creds
     
-    with patch("builtins.open", mock_open(read_data='{}')) as mock_file:
+    with patch("builtins.open", mock_open(read_data='{}')):
         gdrive_authenticate()
         mock_creds.refresh.assert_not_called()

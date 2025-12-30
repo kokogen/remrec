@@ -1,5 +1,4 @@
 # tests/test_recognition.py
-import pytest
 from unittest.mock import patch, MagicMock
 from src.recognition import recognize
 
