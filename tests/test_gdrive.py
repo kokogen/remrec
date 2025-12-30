@@ -167,55 +167,63 @@ def test_list_files_success(client):
     assert files[0]["name"] == "test.pdf"
 
 
+@patch("src.gdrive.MediaIoBaseDownload")
 @patch("src.gdrive.io.FileIO")
-def test_download_file_success(MockFileIO, client):
-    """Test downloading a file successfully."""
-    client.ensure_folder_path_exists = MagicMock(return_value="folder_id")
-    client._find_file_id_by_name = MagicMock(return_value="file_id")
+def test_download_file_success(MockFileIO, MockMediaIoBaseDownload, client):
+    """Test downloading a file successfully using its file ID."""
+    mock_downloader_instance = MockMediaIoBaseDownload.return_value
+    mock_downloader_instance.next_chunk.return_value = (None, True)
+    
+    file_id_to_download = "some_file_id"
+    local_path = "/local/path/test.pdf"
 
-    mock_downloader = MagicMock()
-    mock_downloader.next_chunk.side_effect = [(None, True)]
-    # Mock http.request directly to avoid "not enough values to unpack" ValueError
-    mock_downloader.http.request.return_value = (MagicMock(status=200), b"file_content")
-    client.service.files().get_media.return_value = mock_downloader
+    client.download_file(file_id_to_download, local_path)
 
-    client.download_file("/remote/path/test.pdf", "/local/path/test.pdf")
-
-    client.service.files().get_media.assert_called_once_with(fileId="file_id")
+    client.service.files().get_media.assert_called_once_with(fileId=file_id_to_download)
+    MockFileIO.assert_called_once_with(local_path, "wb")
+    MockMediaIoBaseDownload.assert_called_once()
 
 
 @patch("src.gdrive.MediaFileUpload")
 def test_upload_file_success(MockMediaFileUpload, client):
     """Test uploading a file successfully."""
-    client.ensure_folder_path_exists = MagicMock(return_value="folder_id")
-    client._find_file_id_by_name = MagicMock(return_value=None)
+    client._find_file_id_by_name = MagicMock(return_value=None) # No existing file
 
-    client.upload_file("/local/path/test.pdf", "/remote/path/test.pdf")
+    client.upload_file("/local/path/test.pdf", "folder_id/test.pdf")
 
     MockMediaFileUpload.assert_called_once_with(
-        str("/local/path/test.pdf"), resumable=True
+        "/local/path/test.pdf", resumable=True
+    )
+    client.service.files().create.assert_called_once_with(
+        body={"name": "test.pdf", "parents": ["folder_id"]},
+        media_body=MockMediaFileUpload.return_value,
+        fields="id"
     )
     client.service.files().create().execute.assert_called_once()
 
 
 def test_delete_file_success(client):
-    """Test deleting a file successfully."""
-    client.ensure_folder_path_exists = MagicMock(return_value="folder_id")
-    client._find_file_id_by_name = MagicMock(return_value="file_id")
+    """Test deleting a file successfully by its file ID."""
+    file_id_to_delete = "some_file_id"
+    
+    client.delete_file(file_id_to_delete)
 
-    client.delete_file("/remote/path/test.pdf")
-
-    client.service.files().delete().execute.assert_called_once_with()
+    client.service.files().delete.assert_called_once_with(fileId=file_id_to_delete)
+    client.service.files().delete().execute.assert_called_once()
 
 
 def test_move_file_success(client):
     """Test moving a file successfully."""
-    client.ensure_folder_path_exists = MagicMock(
-        side_effect=["from_folder_id", "to_folder_id"]
+    client._find_file_id_by_name = MagicMock(return_value="file_id_to_move")
+    client.service.files().get().execute.return_value = {"parents": ["old_parent_id"]}
+
+    client.move_file("from_folder_id/test.pdf", "to_folder_id/test.pdf")
+
+    client.service.files().update.assert_called_once_with(
+        fileId="file_id_to_move",
+        addParents="to_folder_id",
+        removeParents="old_parent_id",
+        body={"name": "test.pdf"},
+        fields="id, parents",
     )
-    client._find_file_id_by_name = MagicMock(return_value="file_id")
-    client.service.files().get().execute.return_value = {"parents": ["old_parent"]}
-
-    client.move_file("/from/path/test.pdf", "/to/path/test.pdf")
-
     client.service.files().update().execute.assert_called_once()
