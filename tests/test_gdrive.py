@@ -173,7 +173,7 @@ def test_download_file_success(MockFileIO, MockMediaIoBaseDownload, client):
     """Test downloading a file successfully using its file ID."""
     mock_downloader_instance = MockMediaIoBaseDownload.return_value
     mock_downloader_instance.next_chunk.return_value = (None, True)
-    
+
     file_id_to_download = "some_file_id"
     local_path = "/local/path/test.pdf"
 
@@ -187,17 +187,15 @@ def test_download_file_success(MockFileIO, MockMediaIoBaseDownload, client):
 @patch("src.gdrive.MediaFileUpload")
 def test_upload_file_success(MockMediaFileUpload, client):
     """Test uploading a file successfully."""
-    client._find_file_id_by_name = MagicMock(return_value=None) # No existing file
+    client._find_file_id_by_name = MagicMock(return_value=None)  # No existing file
 
     client.upload_file("/local/path/test.pdf", "folder_id/test.pdf")
 
-    MockMediaFileUpload.assert_called_once_with(
-        "/local/path/test.pdf", resumable=True
-    )
+    MockMediaFileUpload.assert_called_once_with("/local/path/test.pdf", resumable=True)
     client.service.files().create.assert_called_once_with(
         body={"name": "test.pdf", "parents": ["folder_id"]},
         media_body=MockMediaFileUpload.return_value,
-        fields="id"
+        fields="id",
     )
     client.service.files().create().execute.assert_called_once()
 
@@ -205,7 +203,7 @@ def test_upload_file_success(MockMediaFileUpload, client):
 def test_delete_file_success(client):
     """Test deleting a file successfully by its file ID."""
     file_id_to_delete = "some_file_id"
-    
+
     client.delete_file(file_id_to_delete)
 
     client.service.files().delete.assert_called_once_with(fileId=file_id_to_delete)
