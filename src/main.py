@@ -157,9 +157,11 @@ def main_workflow():
         for path in [source_path, dest_path, failed_path]:
             if path:
                 storage_client.verify_folder_exists(path)
-    except Exception as e: # Catch any error during folder verification
-        logging.critical(f"A configured folder for {settings.STORAGE_PROVIDER} does not exist or is inaccessible. Aborting workflow. Error: {e}")
-        return # Exit main_workflow if a configured folder is missing or inaccessible
+    except Exception as e:  # Catch any error during folder verification
+        logging.critical(
+            f"A configured folder for {settings.STORAGE_PROVIDER} does not exist or is inaccessible. Aborting workflow. Error: {e}"
+        )
+        return  # Exit main_workflow if a configured folder is missing or inaccessible
 
     files_to_process = storage_client.list_files(source_path)
     if not files_to_process:
@@ -169,10 +171,10 @@ def main_workflow():
     logging.info(f"Found {len(files_to_process)} files to process.")
     is_dropbox = settings.STORAGE_PROVIDER == "dropbox"
     for entry in files_to_process:
-        file_name = entry.name if is_dropbox else entry['name']
+        file_name = entry.name if is_dropbox else entry["name"]
 
         # A simple check for PDF files based on name
-        if file_name.lower().endswith(".pdf"):            
+        if file_name.lower().endswith(".pdf"):
             logging.info(f"--- Processing file: {file_name} ---")
             start_time = time.monotonic()
             try:
@@ -189,7 +191,11 @@ def main_workflow():
                     exc_info=True,
                 )
                 try:
-                    from_path = f"{source_path}/{file_name}" if is_dropbox else f"{source_path}/{file_name}" # In GDrive source_path is an ID
+                    from_path = (
+                        f"{source_path}/{file_name}"
+                        if is_dropbox
+                        else f"{source_path}/{file_name}"
+                    )  # In GDrive source_path is an ID
                     quarantine_path = f"{failed_path}/{file_name}"
                     storage_client.move_file(from_path, quarantine_path)
                     logging.warning(
@@ -215,7 +221,11 @@ def main_workflow():
                     exc_info=True,
                 )
                 try:
-                    from_path = f"{source_path}/{file_name}" if is_dropbox else f"{source_path}/{file_name}" # In GDrive source_path is an ID
+                    from_path = (
+                        f"{source_path}/{file_name}"
+                        if is_dropbox
+                        else f"{source_path}/{file_name}"
+                    )  # In GDrive source_path is an ID
                     quarantine_path = f"{failed_path}/{file_name}"
                     storage_client.move_file(from_path, quarantine_path)
                     logging.warning(

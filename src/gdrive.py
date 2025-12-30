@@ -12,6 +12,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from .exceptions import PermanentError
 
+
 class GoogleDriveClient(StorageClient):
     """
     Client for interacting with the Google Drive API, implementing the StorageClient interface.
@@ -20,7 +21,7 @@ class GoogleDriveClient(StorageClient):
     def __init__(self, credentials_json: str, token_json: str):
         try:
             token_info = json.loads(token_json)
-            
+
             # The credentials_json can come from a file or environment variable.
             # It should contain the client_id, client_secret, and redirect_uris.
             credentials_data = json.loads(credentials_json)
@@ -29,15 +30,16 @@ class GoogleDriveClient(StorageClient):
 
             # Ensure that the client_id and client_secret from credentials_json are used
             # This is important if creds was generated without these initially or if they need to be updated
-            if 'client_id' in credentials_data and 'client_secret' in credentials_data:
-                creds.client_id = credentials_data['client_id']
-                creds.client_secret = credentials_data['client_secret']
+            if "client_id" in credentials_data and "client_secret" in credentials_data:
+                creds.client_id = credentials_data["client_id"]
+                creds.client_secret = credentials_data["client_secret"]
             else:
-                logging.warning("client_id or client_secret not found in GDRIVE_CREDENTIALS_JSON. Using existing from token_json if available.")
-
+                logging.warning(
+                    "client_id or client_secret not found in GDRIVE_CREDENTIALS_JSON. Using existing from token_json if available."
+                )
 
             self.service = build("drive", "v3", credentials=creds)
-            self.folder_ids_cache = {} # Initialize cache
+            self.folder_ids_cache = {}  # Initialize cache
             logging.info("Google Drive client initialized successfully.")
         except Exception as e:
             logging.error(f"Failed to initialize Google Drive client. Error: {e}")
@@ -59,7 +61,9 @@ class GoogleDriveClient(StorageClient):
             logging.error(f"Failed to search for folder '{name}': {e}")
             return None
 
-    def ensure_folder_path_exists(self, folder_path: str, parent_id: str = "root") -> str:
+    def ensure_folder_path_exists(
+        self, folder_path: str, parent_id: str = "root"
+    ) -> str:
         """
         Recursively finds or creates a folder path and returns the final folder's ID.
         Caches folder IDs to avoid redundant lookups.
@@ -69,9 +73,9 @@ class GoogleDriveClient(StorageClient):
 
         parts = folder_path.strip("/").split("/")
         current_parent_id = parent_id
-        
+
         for i, part in enumerate(parts):
-            current_path = "/".join(parts[:i+1])
+            current_path = "/".join(parts[: i + 1])
             if current_path in self.folder_ids_cache:
                 current_parent_id = self.folder_ids_cache[current_path]
                 continue
@@ -84,13 +88,19 @@ class GoogleDriveClient(StorageClient):
                     "parents": [current_parent_id],
                 }
                 try:
-                    folder = self.service.files().create(body=folder_metadata, fields="id").execute()
+                    folder = (
+                        self.service.files()
+                        .create(body=folder_metadata, fields="id")
+                        .execute()
+                    )
                     folder_id = folder.get("id")
                     logging.info(f"Created folder '{part}' with ID: {folder_id}")
                 except HttpError as e:
                     logging.error(f"Failed to create folder '{part}': {e}")
-                    raise PermanentError(f"Could not create folder '{part}' in Google Drive.")
-            
+                    raise PermanentError(
+                        f"Could not create folder '{part}' in Google Drive."
+                    )
+
             self.folder_ids_cache[current_path] = folder_id
             current_parent_id = folder_id
 
@@ -117,13 +127,19 @@ class GoogleDriveClient(StorageClient):
         self.verify_folder_exists(folder_id)
         try:
             logging.info(f"Listing files in Google Drive folder ID: '{folder_id}'")
-            response = self.service.files().list(
-                q=f"'{folder_id}' in parents and trashed=false",
-                fields="files(id, name)"
-            ).execute()
+            response = (
+                self.service.files()
+                .list(
+                    q=f"'{folder_id}' in parents and trashed=false",
+                    fields="files(id, name)",
+                )
+                .execute()
+            )
             return response.get("files", [])
         except Exception as e:
-            logging.error(f"Failed to list files in Google Drive folder ID '{folder_id}': {e}")
+            logging.error(
+                f"Failed to list files in Google Drive folder ID '{folder_id}': {e}"
+            )
             return []
 
     def download_file(self, file_id: str, local_path: str):
@@ -141,7 +157,9 @@ class GoogleDriveClient(StorageClient):
         except HttpError as e:
             # Check if the error is due to file not found (e.g., 404)
             if e.resp.status == 404:
-                raise FileNotFoundError(f"File with ID '{file_id}' not found in Google Drive.") from e
+                raise FileNotFoundError(
+                    f"File with ID '{file_id}' not found in Google Drive."
+                ) from e
             else:
                 logging.error(f"Failed to download file with ID '{file_id}': {e}")
                 raise
@@ -152,20 +170,24 @@ class GoogleDriveClient(StorageClient):
         For GDrive, remote_path is expected to be 'folder_id/filename'.
         """
         folder_id, filename = os.path.split(remote_path)
-        
+
         # We assume folder_id is a valid ID and exists, as it's verified in main_workflow.
-        
+
         # Check if a file with the same name already exists to avoid duplicates
         existing_file_id = self._find_file_id_by_name(filename, folder_id)
         if existing_file_id:
-            logging.info(f"File '{filename}' already exists in folder {folder_id}. Deleting before upload.")
+            logging.info(
+                f"File '{filename}' already exists in folder {folder_id}. Deleting before upload."
+            )
             self.delete_file(existing_file_id)
 
         try:
             file_metadata = {"name": filename, "parents": [folder_id]}
             media = MediaFileUpload(str(local_path), resumable=True)
-            
-            logging.info(f"Uploading {local_path} to folder ID {folder_id} with name {filename}...")
+
+            logging.info(
+                f"Uploading {local_path} to folder ID {folder_id} with name {filename}..."
+            )
             self.service.files().create(
                 body=file_metadata, media_body=media, fields="id"
             ).execute()
@@ -183,7 +205,9 @@ class GoogleDriveClient(StorageClient):
             self.service.files().delete(fileId=file_id).execute()
         except HttpError as e:
             if e.resp.status == 404:
-                logging.warning(f"File with ID '{file_id}' not found. Nothing to delete.")
+                logging.warning(
+                    f"File with ID '{file_id}' not found. Nothing to delete."
+                )
                 return
             else:
                 logging.error(f"Failed to delete file with ID '{file_id}': {e}")
@@ -201,48 +225,72 @@ class GoogleDriveClient(StorageClient):
         file_id = self._find_file_id_by_name(from_filename, from_folder_id)
 
         if not file_id:
-            raise FileNotFoundError(f"Source file '{from_filename}' not found in folder ID '{from_folder_id}'.")
+            raise FileNotFoundError(
+                f"Source file '{from_filename}' not found in folder ID '{from_folder_id}'."
+            )
 
         try:
-            logging.info(f"Moving file '{from_filename}' from folder {from_folder_id} to folder {to_folder_id}...")
+            logging.info(
+                f"Moving file '{from_filename}' from folder {from_folder_id} to folder {to_folder_id}..."
+            )
             # Retrieve the existing parents to remove them
-            file = self.service.files().get(fileId=file_id, fields='parents').execute()
-            previous_parents = ",".join(file.get('parents'))
-            
+            file = self.service.files().get(fileId=file_id, fields="parents").execute()
+            previous_parents = ",".join(file.get("parents"))
+
             # Move the file by updating its parents
             self.service.files().update(
                 fileId=file_id,
                 addParents=to_folder_id,
                 removeParents=previous_parents,
-                body={"name": to_filename}, # Also handles renaming if to_filename is different
+                body={
+                    "name": to_filename
+                },  # Also handles renaming if to_filename is different
                 fields="id, parents",
             ).execute()
-            logging.info(f"Successfully moved '{from_filename}' to folder ID '{to_folder_id}'.")
+            logging.info(
+                f"Successfully moved '{from_filename}' to folder ID '{to_folder_id}'."
+            )
         except HttpError as e:
-            logging.error(f"Failed to move file from folder '{from_folder_id}' to '{to_folder_id}': {e}")
+            logging.error(
+                f"Failed to move file from folder '{from_folder_id}' to '{to_folder_id}': {e}"
+            )
             raise
 
     def verify_folder_exists(self, folder_path: str):
         """
         Verifies if a folder with a given ID exists and is actually a folder.
         The `folder_path` parameter is treated as a folder ID for Google Drive.
-        
+
         Raises:
             PermanentError: If the ID does not exist, or if the item is not a folder.
         """
         try:
-            file = self.service.files().get(fileId=folder_path, fields='id, mimeType').execute()
-            if file.get('mimeType') == 'application/vnd.google-apps.folder':
-                logging.info(f"Google Drive folder with ID '{folder_path}' exists and is a folder.")
+            file = (
+                self.service.files()
+                .get(fileId=folder_path, fields="id, mimeType")
+                .execute()
+            )
+            if file.get("mimeType") == "application/vnd.google-apps.folder":
+                logging.info(
+                    f"Google Drive folder with ID '{folder_path}' exists and is a folder."
+                )
                 return folder_path
             else:
-                raise PermanentError(f"Google Drive ID '{folder_path}' exists but is not a folder.")
+                raise PermanentError(
+                    f"Google Drive ID '{folder_path}' exists but is not a folder."
+                )
         except HttpError as e:
             if e.resp.status == 404:
-                raise PermanentError(f"Google Drive folder with ID '{folder_path}' not found. Please check your configuration.")
+                raise PermanentError(
+                    f"Google Drive folder with ID '{folder_path}' not found. Please check your configuration."
+                )
             else:
-                logging.error(f"Failed to verify Google Drive folder ID '{folder_path}': {e}")
-                raise PermanentError(f"API error while verifying folder ID '{folder_path}': {e}")
+                logging.error(
+                    f"Failed to verify Google Drive folder ID '{folder_path}': {e}"
+                )
+                raise PermanentError(
+                    f"API error while verifying folder ID '{folder_path}': {e}"
+                )
 
     def create_folder_if_not_exists(self, folder_path: str):
         pass

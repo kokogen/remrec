@@ -8,6 +8,7 @@ from google.oauth2.credentials import Credentials
 # The scope for Google Drive API
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
+
 def gdrive_authenticate():
     """
     Handles the OAuth 2.0 flow for Google Drive API.
@@ -43,6 +44,6 @@ def gdrive_authenticate():
         with open(token_path, "w") as token_file:
             token_file.write(creds.to_json())
         print(f"Token saved to {token_path}")
-    
+
     if __name__ == "__main__":
         gdrive_authenticate()

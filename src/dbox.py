@@ -142,8 +142,10 @@ class DropboxClient(StorageClient):
             logging.info(f"Dropbox folder '{folder_path}' exists.")
         except ApiError as e:
             if e.error.is_path() and e.error.get_path().is_not_found():
-                logging.critical(f"Configured Dropbox folder '{folder_path}' does not exist.")
-                raise # Re-raise the error to be handled upstream (e.g., in main.py)
+                logging.critical(
+                    f"Configured Dropbox folder '{folder_path}' does not exist."
+                )
+                raise  # Re-raise the error to be handled upstream (e.g., in main.py)
             else:
                 logging.error(f"Error accessing Dropbox folder '{folder_path}': {e}")
-                raise # Re-raise for other API errors (e.g., permissions)
+                raise  # Re-raise for other API errors (e.g., permissions)

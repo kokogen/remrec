@@ -7,6 +7,7 @@ from src.exceptions import PermanentError
 
 # Fixtures for mock_settings and mock_storage_client can be used from conftest.py
 
+
 @patch("src.processing.os.path.exists", return_value=True)
 @patch("src.processing.os.remove")
 @patch("src.processing.get_settings")
@@ -14,24 +15,30 @@ from src.exceptions import PermanentError
 @patch("src.processing.recognize")
 @patch("src.processing.create_reflowed_pdf")
 def test_process_single_file_success(
-    mock_create_pdf, mock_recognize, mock_convert_from_path, mock_get_settings, mock_os_remove, mock_path_exists,
-    mock_settings, mock_storage_client
+    mock_create_pdf,
+    mock_recognize,
+    mock_convert_from_path,
+    mock_get_settings,
+    mock_os_remove,
+    mock_path_exists,
+    mock_settings,
+    mock_storage_client,
 ):
     """Test the successful processing of a single file."""
     # Setup
     mock_get_settings.return_value = mock_settings
     mock_convert_from_path.return_value = [MagicMock()]
     mock_recognize.return_value = "text1"
-    
+
     file_entry = MagicMock()
     file_entry.name = "test.pdf"
-    
+
     # Mock LOCAL_BUF_DIR to be a real Path object for the test
     mock_settings.LOCAL_BUF_DIR = Path("/tmp/buf")
-    
+
     # Action
     process_single_file(mock_storage_client, file_entry)
-    
+
     # Asserts
     mock_storage_client.download_file.assert_called_once()
     mock_convert_from_path.assert_called_once()
@@ -39,10 +46,13 @@ def test_process_single_file_success(
     mock_create_pdf.assert_called_once()
     mock_storage_client.upload_file.assert_called_once()
     mock_storage_client.delete_file.assert_called_once()
-    assert mock_os_remove.call_count == 2 # local_pdf_path and result_pdf_path
+    assert mock_os_remove.call_count == 2  # local_pdf_path and result_pdf_path
+
 
 @patch("src.processing.get_settings")
-@patch("src.processing.convert_from_path", side_effect=Exception("PDF processing failed"))
+@patch(
+    "src.processing.convert_from_path", side_effect=Exception("PDF processing failed")
+)
 def test_process_single_file_permanent_error(
     mock_convert_from_path, mock_get_settings, mock_settings, mock_storage_client
 ):
@@ -51,11 +61,11 @@ def test_process_single_file_permanent_error(
     mock_get_settings.return_value = mock_settings
     file_entry = MagicMock()
     file_entry.name = "test.pdf"
-    
+
     # Action and Asserts
     with pytest.raises(PermanentError):
         process_single_file(mock_storage_client, file_entry)
-        
+
     mock_storage_client.download_file.assert_called_once()
     mock_storage_client.upload_file.assert_not_called()
     mock_storage_client.delete_file.assert_not_called()

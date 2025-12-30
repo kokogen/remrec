@@ -12,9 +12,7 @@ from .recognition import image_to_base64, recognize
 from .pdf_utils import create_reflowed_pdf
 
 
-def process_single_file(
-    storage_client: StorageClient, file_entry: Any
-):
+def process_single_file(storage_client: StorageClient, file_entry: Any):
     """
     Full processing cycle for a single file with detailed error handling at each step.
     Works with any client that implements the StorageClient interface.
@@ -22,15 +20,15 @@ def process_single_file(
     settings = get_settings()
 
     is_dropbox = settings.STORAGE_PROVIDER == "dropbox"
-    
+
     if is_dropbox:
         file_name = file_entry.name
         file_path = file_entry.path_display
         dest_dir = settings.DROPBOX_DEST_DIR
-    else: # Google Drive
+    else:  # Google Drive
         file_name = file_entry.get("name")
         dest_dir = settings.GDRIVE_DEST_FOLDER_ID
-        file_id = file_entry.get("id") # Use the file ID directly
+        file_id = file_entry.get("id")  # Use the file ID directly
         # file_path is not used for Google Drive download/delete anymore
 
     local_pdf_path = settings.LOCAL_BUF_DIR / file_name
@@ -41,8 +39,8 @@ def process_single_file(
         try:
             if is_dropbox:
                 storage_client.download_file(file_path, local_pdf_path)
-            else: # Google Drive
-                storage_client.download_file(file_id, local_pdf_path) # Pass file_id
+            else:  # Google Drive
+                storage_client.download_file(file_id, local_pdf_path)  # Pass file_id
         except Exception as e:
             raise TransientError(f"API error during download: {e}") from e
 
@@ -95,8 +93,8 @@ def process_single_file(
         try:
             if is_dropbox:
                 storage_client.delete_file(file_path)
-            else: # Google Drive
-                storage_client.delete_file(file_id) # Use file_id for Google Drive
+            else:  # Google Drive
+                storage_client.delete_file(file_id)  # Use file_id for Google Drive
         except Exception as e:
             logging.warning(
                 f"Could not delete original file {file_name} after processing. Error: {e}"
