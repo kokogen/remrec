@@ -43,7 +43,7 @@ To run this application on your own machine, you'll need to provide your credent
     **For Dropbox:**
     *   `DROPBOX_APP_KEY`: Your key from the Dropbox App Console.
     *   `DROPBOX_APP_SECRET`: Your secret from the Dropbox App Console.
-    *   `DROPBOX_SOURCE_DIR`: The folder in your Dropbox to watch for new files (e.g., `/Apps/remarkable`).
+    *   `DROPBOX_SOURCE_DIR`: The folder in your Dropbox to watch for new files (e.g., `/Apps/remarkable`). An empty string (`""`) can be used to specify the root folder.
     *   `DROPBOX_DEST_DIR`: The folder where recognized PDFs will be uploaded.
     *   `DROPBOX_FAILED_DIR`: The folder for files that failed processing.
 
@@ -59,14 +59,14 @@ To run this application on your own machine, you'll need to provide your credent
 3.  **Generate Dropbox Refresh Token (if using Dropbox)**:
     Run the interactive `auth.py` script to generate your Dropbox refresh token.
     ```shell
-    docker-compose run --rm app python auth.py
+    docker-compose run --rm app python -m src.auth
     ```
     Follow the on-screen prompts. This will create a `.dropbox.token` file in your project root, which is automatically used by the application.
 
 4.  **Generate Google Drive Token (if using Google Drive)**:
     You need to obtain a `credentials.json` file from the Google Cloud Console for a desktop application. Then, run the interactive `gdrive_auth.py` script.
     ```bash
-    docker-compose run --rm app python gdrive_auth.py
+    docker-compose run --rm app python -m src.gdrive_auth
     ```
     Follow the prompts to provide the path to your `credentials.json` file. This will generate a `gdrive_token.json` file in your project root. You will then need to copy the content of this `gdrive_token.json` and `credentials.json` into your `.env` file under `GDRIVE_TOKEN_JSON` and `GDRIVE_CREDENTIALS_JSON` respectively. Ensure they are single-line JSON strings.
 
@@ -74,8 +74,13 @@ To run this application on your own machine, you'll need to provide your credent
 
 The easiest way to run the service on your local machine is with the `deploy-local.sh` script.
 
-1.  **Find an Image Tag:** Find the latest version tag to use from the project's Docker Hub or Git repository.
-2.  **Run the Script:** Execute the script with the desired tag.
+1.  **Build the Docker Image:**
+    The `docker-compose.yml` is configured to build the image from the local `Dockerfile`.
+    ```shell
+    docker-compose build
+    ```
+2.  **Find an Image Tag:** Find the latest version tag to use from the project's Docker Hub or Git repository.
+3.  **Run the Script:** Execute the script with the desired tag.
     ```shell
     ./deploy-local.sh <your_image_tag>
     ```
@@ -93,7 +98,7 @@ This script will automatically:
     ```
 -   **Running a One-Time Task (Debug Mode):**
     ```shell
-    docker-compose run --rm app python main.py --run-once
+    docker-compose run --rm app python -m src.main --run-once
     ```
 -   **Stopping the Application:**
     ```shell
@@ -113,6 +118,22 @@ The Docker image is automatically built and pushed to Docker Hub by a GitHub Act
 
 ### Remote Deployment (Synology)
 The `deploy.sh` script is designed for deploying the application to a remote server, such as a Synology NAS. It requires manual configuration of SSH details within the script.
+
+### Code Quality
+This project uses `ruff` for linting and code formatting. You can run the following commands to check and format the code:
+```bash
+# Check for linting errors
+ruff check .
+
+# Automatically fix linting errors
+ruff check . --fix
+
+# Check formatting
+ruff format --check .
+
+# Apply formatting
+ruff format .
+```
 
 ## Project Structure
 
