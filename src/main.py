@@ -112,8 +112,10 @@ def initialize_storage_client(settings) -> Optional[StorageClient]:
     """
     if settings.STORAGE_PROVIDER == "dropbox":
         logging.info("Using Dropbox storage provider.")
-        if not all([settings.DROPBOX_REFRESH_TOKEN_ENV, settings.DROPBOX_REFRESH_TOKEN_FILE]):
-             logging.error("Dropbox token not found in env var or file.")
+        if not all(
+            [settings.DROPBOX_REFRESH_TOKEN_ENV, settings.DROPBOX_REFRESH_TOKEN_FILE]
+        ):
+            logging.error("Dropbox token not found in env var or file.")
         return _init_dropbox_client(settings)
 
     elif settings.STORAGE_PROVIDER == "gdrive":

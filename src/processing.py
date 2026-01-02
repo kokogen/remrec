@@ -80,7 +80,7 @@ def process_single_file(storage_client: StorageClient, file_entry: FileMetadata)
             storage_client.upload_file(
                 local_path=result_pdf_path,
                 folder_id=settings.DST_FOLDER,
-                filename=result_pdf_path.name
+                filename=result_pdf_path.name,
             )
         except Exception as e:
             raise TransientError(f"API error during upload: {e}") from e

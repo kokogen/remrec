@@ -38,7 +38,6 @@ def test_process_single_file_success(
     mock_settings.LOCAL_BUF_DIR = Path("/tmp/buf")
     mock_settings.DST_FOLDER = "/processed"
 
-
     # Action
     process_single_file(mock_storage_client, file_entry)
 
@@ -52,7 +51,7 @@ def test_process_single_file_success(
     mock_storage_client.upload_file.assert_called_once_with(
         local_path=Path("/tmp/buf/recognized_test.pdf"),
         folder_id="/processed",
-        filename="recognized_test.pdf"
+        filename="recognized_test.pdf",
     )
     mock_storage_client.delete_file.assert_called_once_with("file_id_123")
     assert mock_os_remove.call_count == 2  # local_pdf_path and result_pdf_path
