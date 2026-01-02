@@ -19,3 +19,7 @@ improvement_plan.md
 gha-creds-*.json
 credentials.json
 gdrive_token.json
+.coverage
+coverage.xml
+prepare-secrets.md
+recomendations.txt
