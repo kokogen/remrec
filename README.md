@@ -98,7 +98,7 @@ This script will automatically:
     ```
 -   **Running a One-Time Task (Debug Mode):**
     ```shell
-    docker-compose run --rm app python -m src.main --run-once
+    
     ```
 -   **Stopping the Application:**
     ```shell
