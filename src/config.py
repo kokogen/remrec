@@ -54,8 +54,19 @@ class Settings(BaseSettings):
             self.SRC_FOLDER = self.DROPBOX_SOURCE_DIR
             self.DST_FOLDER = self.DROPBOX_DEST_DIR
             self.FAILED_FOLDER = self.DROPBOX_FAILED_DIR
-            if not all([self.DROPBOX_APP_KEY, self.DROPBOX_APP_SECRET, self.SRC_FOLDER, self.DST_FOLDER, self.FAILED_FOLDER]):
-                raise ValueError("For Dropbox, APP_KEY, APP_SECRET and all DIRs must be set.")
+            
+            # Perform validation
+            if not self.DROPBOX_APP_KEY:
+                raise ValueError("For Dropbox, APP_KEY must be set.")
+            if not self.DROPBOX_APP_SECRET:
+                raise ValueError("For Dropbox, APP_SECRET must be set.")
+            if self.DROPBOX_SOURCE_DIR is None: # Can be empty string, but not None
+                raise ValueError("For Dropbox, SOURCE_DIR must be set (can be empty for root).")
+            if not self.DST_FOLDER: # DST_FOLDER gets value from DROPBOX_DEST_DIR
+                raise ValueError("For Dropbox, DEST_FOLDER must be set.")
+            if not self.FAILED_FOLDER: # FAILED_FOLDER gets value from DROPBOX_FAILED_DIR
+                raise ValueError("For Dropbox, FAILED_FOLDER must be set.")
+
             if not (self.DROPBOX_REFRESH_TOKEN_ENV or self.TOKEN_STORAGE_FILE.exists()):
                  logging.warning("Dropbox refresh token not found in env or file.")
 
