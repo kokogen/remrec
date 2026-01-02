@@ -30,7 +30,7 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     custom_style = ParagraphStyle(
         name="CustomStyle",
         parent=styles["Normal"],
-        fontName="Helvetica",
+        fontName="DejaVuSans",
         fontSize=11,
         leading=14,
     )
