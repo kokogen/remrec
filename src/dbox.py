@@ -38,7 +38,7 @@ class DropboxClient(StorageClient):
         """
         try:
             logging.info(f"Listing files in Dropbox path: '{folder_path}'")
-            result = self.dbx.files_list_folder(folder_path, recursive=True) # Recursive listing
+            result = self.dbx.files_list_folder(folder_path) # Non-recursive
             all_entries = result.entries
             while result.has_more:
                 logging.info("Found more files, continuing listing...")
