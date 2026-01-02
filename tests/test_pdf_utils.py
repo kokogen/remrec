@@ -23,7 +23,6 @@ def test_create_reflowed_pdf(
     mock_style.fontName = "Helvetica"
     mock_style.textTransform = None  # Prevent ValueError in reportlab
 
-    mock_settings = mock_get_settings.return_value
     mock_doc = MockSimpleDocTemplate.return_value
     texts = ["Page 1", "Page 2"]
     output_pdf = "/fake/path/output.pdf"
