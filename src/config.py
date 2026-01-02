@@ -55,10 +55,6 @@ class Settings(BaseSettings):
             self.DST_FOLDER = self.DROPBOX_DEST_DIR
             self.FAILED_FOLDER = self.DROPBOX_FAILED_DIR
 
-            # DEBUG LOGGING
-            logging.info(f"DEBUG: Initial DROPBOX_SOURCE_DIR = '{self.DROPBOX_SOURCE_DIR}'")
-            logging.info(f"DEBUG: SRC_FOLDER set to = '{self.SRC_FOLDER}'")
-
             # Perform validation
             if not self.DROPBOX_APP_KEY:
                 raise ValueError("For Dropbox, APP_KEY must be set.")
