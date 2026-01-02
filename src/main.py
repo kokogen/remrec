@@ -1,7 +1,7 @@
 # main.py
 import logging
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 from .config import get_settings
 from .dbox import DropboxClient
@@ -106,114 +106,138 @@ def _init_gdrive_client(settings) -> Optional[GoogleDriveClient]:
         return None
 
 
-def initialize_storage_client(settings) -> Optional[StorageClient]:
+def initialize_storage_client(
+    settings,
+) -> Tuple[Optional[StorageClient], Optional[str], Optional[str], Optional[str]]:
     """
     Initializes and returns the appropriate storage client based on settings.
+
+    Returns a tuple of (storage_client, source_path, dest_path, failed_path).
     """
+    storage_client: Optional[StorageClient] = None
+    source_path, dest_path, failed_path = None, None, None
+
     if settings.STORAGE_PROVIDER == "dropbox":
         logging.info("Using Dropbox storage provider.")
-        if not all([settings.DROPBOX_REFRESH_TOKEN_ENV, settings.DROPBOX_REFRESH_TOKEN_FILE]):
-             logging.error("Dropbox token not found in env var or file.")
-        return _init_dropbox_client(settings)
+        source_path = settings.DROPBOX_SOURCE_DIR
+        dest_path = settings.DROPBOX_DEST_DIR
+        failed_path = settings.DROPBOX_FAILED_DIR
+        storage_client = _init_dropbox_client(settings)
 
     elif settings.STORAGE_PROVIDER == "gdrive":
         logging.info("Using Google Drive storage provider.")
-        return _init_gdrive_client(settings)
+        source_path = settings.GDRIVE_SOURCE_FOLDER_ID
+        dest_path = settings.GDRIVE_DEST_FOLDER_ID
+        failed_path = settings.GDRIVE_FAILED_FOLDER_ID
+        storage_client = _init_gdrive_client(settings)
 
     else:
         logging.critical(f"Unknown STORAGE_PROVIDER: {settings.STORAGE_PROVIDER}")
-        return None
+
+    return storage_client, source_path, dest_path, failed_path
 
 
 def main_workflow():
     logging.info("Starting workflow...")
     settings = get_settings()
 
-    # Initialize the storage client. Folder paths are now handled by the settings object.
-    storage_client = initialize_storage_client(settings)
+    storage_client, source_path, dest_path, failed_path = initialize_storage_client(
+        settings
+    )
 
+    # 3. If client initialization failed, exit the workflow for this run.
     if storage_client is None:
         logging.critical(
-            f"Could not establish a connection to {settings.STORAGE_PROVIDER}. Aborting workflow."
+            f"Could not establish a connection to {settings.STORAGE_PROVIDER}."
         )
         return
 
-    # Check that necessary folders exist using the generic folder settings
+    # Check necessary folders exist
     try:
-        for path in [settings.SRC_FOLDER, settings.DST_FOLDER, settings.FAILED_FOLDER]:
+        for path in [source_path, dest_path, failed_path]:
             if path:
                 storage_client.verify_folder_exists(path)
-    except Exception as e:
+    except Exception as e:  # Catch any error during folder verification
         logging.critical(
             f"A configured folder for {settings.STORAGE_PROVIDER} does not exist or is inaccessible. Aborting workflow. Error: {e}"
         )
-        return
+        return  # Exit main_workflow if a configured folder is missing or inaccessible
 
-    files_to_process = storage_client.list_files(settings.SRC_FOLDER)
+    files_to_process = storage_client.list_files(source_path)
     if not files_to_process:
         logging.info("No new files to process.")
         return
 
     logging.info(f"Found {len(files_to_process)} files to process.")
-
+    is_dropbox = settings.STORAGE_PROVIDER == "dropbox"
     for entry in files_to_process:
-        # Now 'entry' is a standardized FileMetadata DTO
-        file_name = entry.name
+        file_name = entry.name if is_dropbox else entry["name"]
 
-        if not file_name.lower().endswith(".pdf"):
-            logging.warning(f"Skipping non-PDF or folder entry: {file_name}")
-            continue
-
-        logging.info(f"--- Processing file: {file_name} ---")
-        start_time = time.monotonic()
-        try:
-            process_single_file(storage_client, entry)
-            duration = time.monotonic() - start_time
-            logging.info(
-                f"Finished processing {file_name}. Took {duration:.2f} seconds."
-            )
-
-        except (PermanentError, TransientError) as e:
-            duration = time.monotonic() - start_time
-            error_type = "PERMANENT" if isinstance(e, PermanentError) else "TRANSIENT"
-            log_message = (
-                f"{error_type} ERROR processing file {file_name} after {duration:.2f} seconds. "
-                f"Moving to quarantine. Error: {e}"
-            )
-            if isinstance(e, PermanentError):
-                logging.error(log_message, exc_info=True)
-            else:
-                logging.warning(log_message, exc_info=True)
-
+        # A simple check for PDF files based on name
+        if file_name.lower().endswith(".pdf"):
+            logging.info(f"--- Processing file: {file_name} ---")
+            start_time = time.monotonic()
             try:
-                # Use the new, abstract move_file method
-                storage_client.move_file(entry.id, settings.FAILED_FOLDER)
-                logging.warning(
-                    f"Moved failed file {file_name} to quarantine folder '{settings.FAILED_FOLDER}'."
-                )
-            except Exception as move_e:
-                logging.critical(
-                    f"CRITICAL: Could not move failed file {file_name} to quarantine. Error: {move_e}",
-                    exc_info=True,
+                process_single_file(storage_client, entry)
+                duration = time.monotonic() - start_time
+                logging.info(
+                    f"Finished processing {file_name}. Took {duration:.2f} seconds."
                 )
 
-        except Exception as e:
-            duration = time.monotonic() - start_time
-            logging.critical(
-                f"UNHANDLED CRITICAL ERROR processing file {file_name} after {duration:.2f} seconds. Moving to quarantine as a precaution. Error: {e}",
-                exc_info=True,
-            )
-            try:
-                # Use the new, abstract move_file method
-                storage_client.move_file(entry.id, settings.FAILED_FOLDER)
-                logging.warning(
-                    f"Moved failed file {file_name} to quarantine folder as a precaution."
-                )
-            except Exception as move_e:
+            except PermanentError as e:
+                duration = time.monotonic() - start_time
                 logging.error(
-                    f"CRITICAL: Could not move unhandled error file {file_name} to quarantine. Error: {move_e}",
+                    f"PERMANENT ERROR processing file {file_name} after {duration:.2f} seconds. Moving to quarantine. Error: {e}",
                     exc_info=True,
                 )
+                try:
+                    from_path = (
+                        f"{source_path}/{file_name}"
+                        if is_dropbox
+                        else f"{source_path}/{file_name}"
+                    )  # In GDrive source_path is an ID
+                    quarantine_path = f"{failed_path}/{file_name}"
+                    storage_client.move_file(from_path, quarantine_path)
+                    logging.warning(
+                        f"Moved failed file {file_name} to quarantine folder."
+                    )
+                except Exception as move_e:
+                    logging.critical(
+                        f"CRITICAL: Could not move failed file {file_name} to quarantine. Error: {move_e}",
+                        exc_info=True,
+                    )
+
+            except TransientError as e:
+                duration = time.monotonic() - start_time
+                logging.warning(
+                    f"TRANSIENT ERROR processing file {file_name} after {duration:.2f} seconds. Will retry on next run. Error: {e}",
+                    exc_info=True,
+                )
+
+            except Exception as e:
+                duration = time.monotonic() - start_time
+                logging.critical(
+                    f"UNHANDLED CRITICAL ERROR processing file {file_name} after {duration:.2f} seconds. Moving to quarantine as a precaution. Error: {e}",
+                    exc_info=True,
+                )
+                try:
+                    from_path = (
+                        f"{source_path}/{file_name}"
+                        if is_dropbox
+                        else f"{source_path}/{file_name}"
+                    )  # In GDrive source_path is an ID
+                    quarantine_path = f"{failed_path}/{file_name}"
+                    storage_client.move_file(from_path, quarantine_path)
+                    logging.warning(
+                        f"Moved failed file {file_name} to quarantine folder as a precaution."
+                    )
+                except Exception as move_e:
+                    logging.error(
+                        f"CRITICAL: Could not move unhandled error file {file_name} to quarantine. Error: {move_e}",
+                        exc_info=True,
+                    )
+        else:
+            logging.warning(f"Skipping non-PDF or folder entry: {file_name}")
 
 
 def main():

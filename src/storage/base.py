@@ -1,7 +1,6 @@
 # storage/base.py
 from abc import ABC, abstractmethod
-from typing import List
-from .dto import FileMetadata
+from typing import List, Any
 
 
 class StorageClient(ABC):
@@ -12,12 +11,12 @@ class StorageClient(ABC):
     """
 
     @abstractmethod
-    def list_files(self, folder_path: str) -> List[FileMetadata]:
+    def list_files(self, folder_path: str) -> List[Any]:
         """
         Lists all files in a given folder.
 
         :param folder_path: The path or ID of the folder to list.
-        :return: A list of standardized FileMetadata DTOs.
+        :return: A list of file metadata objects.
         """
         pass
 
@@ -32,13 +31,12 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def upload_file(self, local_path: str, folder_id: str, filename: str):
+    def upload_file(self, local_path: str, remote_path: str):
         """
-        Uploads a file to a specific folder with a given filename.
+        Uploads a file to the storage.
 
         :param local_path: The local path of the file to upload.
-        :param folder_id: The ID of the destination folder.
-        :param filename: The name for the uploaded file.
+        :param remote_path: The destination path or ID in the storage.
         """
         pass
 
@@ -52,12 +50,12 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def move_file(self, file_id: str, new_folder_id: str):
+    def move_file(self, from_path: str, to_path: str):
         """
-        Moves a file to a different folder.
+        Moves or renames a file within the storage.
 
-        :param file_id: The ID or path of the file to move.
-        :param new_folder_id: The ID of the destination folder.
+        :param from_path: The original path or ID of the file.
+        :param to_path: The new path or ID of the file.
         """
         pass
 

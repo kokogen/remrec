@@ -3,6 +3,7 @@ import logging
 import os
 import openai
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
+from typing import Any
 
 from .config import get_settings
 from .storage.base import StorageClient
@@ -11,19 +12,24 @@ from .recognition import image_to_base64, recognize
 from .pdf_utils import create_reflowed_pdf
 
 
-from .storage.dto import FileMetadata
-
-
-def process_single_file(storage_client: StorageClient, file_entry: FileMetadata):
+def process_single_file(storage_client: StorageClient, file_entry: Any):
     """
     Full processing cycle for a single file with detailed error handling at each step.
     Works with any client that implements the StorageClient interface.
     """
     settings = get_settings()
 
-    # Use the standardized DTO for all file information
-    file_name = file_entry.name
-    file_id = file_entry.id  # This is the path for Dropbox or ID for GDrive
+    is_dropbox = settings.STORAGE_PROVIDER == "dropbox"
+
+    if is_dropbox:
+        file_name = file_entry.name
+        file_path = file_entry.path_display
+        dest_dir = settings.DROPBOX_DEST_DIR
+    else:  # Google Drive
+        file_name = file_entry.get("name")
+        dest_dir = settings.GDRIVE_DEST_FOLDER_ID
+        file_id = file_entry.get("id")  # Use the file ID directly
+        # file_path is not used for Google Drive download/delete anymore
 
     local_pdf_path = settings.LOCAL_BUF_DIR / file_name
     result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_name}"
@@ -31,8 +37,10 @@ def process_single_file(storage_client: StorageClient, file_entry: FileMetadata)
     try:
         # 1. Download the file
         try:
-            # The 'id' from the DTO is used, which works for both providers
-            storage_client.download_file(file_id, local_pdf_path)
+            if is_dropbox:
+                storage_client.download_file(file_path, local_pdf_path)
+            else:  # Google Drive
+                storage_client.download_file(file_id, local_pdf_path)  # Pass file_id
         except Exception as e:
             raise TransientError(f"API error during download: {e}") from e
 
@@ -76,19 +84,17 @@ def process_single_file(storage_client: StorageClient, file_entry: FileMetadata)
 
         # 5. Upload the result
         try:
-            # Use the new abstract upload method
-            storage_client.upload_file(
-                local_path=result_pdf_path,
-                folder_id=settings.DST_FOLDER,
-                filename=result_pdf_path.name
-            )
+            dest_path = f"{dest_dir}/{result_pdf_path.name}"
+            storage_client.upload_file(result_pdf_path, dest_path)
         except Exception as e:
             raise TransientError(f"API error during upload: {e}") from e
 
         # 6. Delete the original file
         try:
-            # Use the 'id' from the DTO, which works for both providers
-            storage_client.delete_file(file_id)
+            if is_dropbox:
+                storage_client.delete_file(file_path)
+            else:  # Google Drive
+                storage_client.delete_file(file_id)  # Use file_id for Google Drive
         except Exception as e:
             logging.warning(
                 f"Could not delete original file {file_name} after processing. Error: {e}"
