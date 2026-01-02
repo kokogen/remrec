@@ -118,5 +118,5 @@ def get_settings() -> Settings:
     logging.info("------------------------------------")
     
     # Create buffer directory if it doesn't exist.
-    (settings.BASE_DIR / "src" / "buf").mkdir(exist_ok=True)
+    (settings.BASE_DIR / "src" / "buf").mkdir(parents=True, exist_ok=True)
     return settings

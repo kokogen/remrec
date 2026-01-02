@@ -51,7 +51,7 @@ def test_list_files_success_single_page(client):
 
     files = client.list_files("/some_path")
 
-    client.dbx.files_list_folder.assert_called_once_with("/some_path", recursive=True)
+    client.dbx.files_list_folder.assert_called_once_with("/some_path")
     client.dbx.files_list_folder_continue.assert_not_called()
     assert len(files) == 1
     assert files[0].name == "test.pdf"
@@ -76,7 +76,7 @@ def test_list_files_with_pagination(client):
     files = client.list_files("/some_path")
 
     # 3. Проверки
-    client.dbx.files_list_folder.assert_called_once_with("/some_path", recursive=True)
+    client.dbx.files_list_folder.assert_called_once_with("/some_path")
     client.dbx.files_list_folder_continue.assert_called_once_with("cursor123")
     assert len(files) == 2
     assert files[0].name == "file1.pdf"
