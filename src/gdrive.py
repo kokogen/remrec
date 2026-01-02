@@ -2,10 +2,10 @@
 import logging
 import json
 import io
-import os
 
 from .storage.base import StorageClient
-from typing import List, Any
+from .storage.dto import FileMetadata
+from typing import List
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -113,16 +113,16 @@ class GoogleDriveClient(StorageClient):
         """
         try:
             query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
-            response = self.service.files().list(q=query, fields="files(id)").execute()
+            response = self.service.files().list(q=query, fields="files(id, name)").execute()
             files = response.get("files", [])
             return files[0]["id"] if files else None
         except HttpError as e:
             logging.error(f"Error finding file '{filename}': {e}")
             return None
 
-    def list_files(self, folder_id: str) -> List[Any]:
+    def list_files(self, folder_id: str) -> List[FileMetadata]:
         """
-        Lists all files in a given Google Drive folder ID.
+        Lists all files in a given Google Drive folder ID and returns them as DTOs.
         """
         self.verify_folder_exists(folder_id)
         try:
@@ -135,7 +135,16 @@ class GoogleDriveClient(StorageClient):
                 )
                 .execute()
             )
-            return response.get("files", [])
+            files = response.get("files", [])
+            # Convert the raw API response to a list of FileMetadata DTOs
+            return [
+                FileMetadata(
+                    id=item['id'],
+                    name=item['name'],
+                    path=item['id'],  # For GDrive, ID is the most reliable path
+                    folder_id=folder_id
+                ) for item in files
+            ]
         except Exception as e:
             logging.error(
                 f"Failed to list files in Google Drive folder ID '{folder_id}': {e}"
@@ -164,16 +173,11 @@ class GoogleDriveClient(StorageClient):
                 logging.error(f"Failed to download file with ID '{file_id}': {e}")
                 raise
 
-    def upload_file(self, local_path: str, remote_path: str):
+    def upload_file(self, local_path: str, folder_id: str, filename: str):
         """
-        Uploads a local file to a specified path in Google Drive.
-        For GDrive, remote_path is expected to be 'folder_id/filename'.
+        Uploads a local file to a specified folder in Google Drive.
         """
-        folder_id, filename = os.path.split(remote_path)
-
         # We assume folder_id is a valid ID and exists, as it's verified in main_workflow.
-
-        # Check if a file with the same name already exists to avoid duplicates
         existing_file_id = self._find_file_id_by_name(filename, folder_id)
         if existing_file_id:
             logging.info(
@@ -213,26 +217,12 @@ class GoogleDriveClient(StorageClient):
                 logging.error(f"Failed to delete file with ID '{file_id}': {e}")
                 raise
 
-    def move_file(self, from_path: str, to_path: str):
+    def move_file(self, file_id: str, new_folder_id: str):
         """
         Moves a file to a different folder in Google Drive.
-        For GDrive, from_path is 'source_folder_id/filename' and to_path is 'dest_folder_id/filename'.
         """
-        from_folder_id, from_filename = os.path.split(from_path)
-        to_folder_id, to_filename = os.path.split(to_path)
-
-        # Find the file to move
-        file_id = self._find_file_id_by_name(from_filename, from_folder_id)
-
-        if not file_id:
-            raise FileNotFoundError(
-                f"Source file '{from_filename}' not found in folder ID '{from_folder_id}'."
-            )
-
         try:
-            logging.info(
-                f"Moving file '{from_filename}' from folder {from_folder_id} to folder {to_folder_id}..."
-            )
+            logging.info(f"Moving file ID '{file_id}' to folder ID '{new_folder_id}'...")
             # Retrieve the existing parents to remove them
             file = self.service.files().get(fileId=file_id, fields="parents").execute()
             previous_parents = ",".join(file.get("parents"))
@@ -240,19 +230,14 @@ class GoogleDriveClient(StorageClient):
             # Move the file by updating its parents
             self.service.files().update(
                 fileId=file_id,
-                addParents=to_folder_id,
+                addParents=new_folder_id,
                 removeParents=previous_parents,
-                body={
-                    "name": to_filename
-                },  # Also handles renaming if to_filename is different
                 fields="id, parents",
             ).execute()
-            logging.info(
-                f"Successfully moved '{from_filename}' to folder ID '{to_folder_id}'."
-            )
+            logging.info(f"Successfully moved file ID '{file_id}' to folder ID '{new_folder_id}'.")
         except HttpError as e:
             logging.error(
-                f"Failed to move file from folder '{from_folder_id}' to '{to_folder_id}': {e}"
+                f"Failed to move file ID '{file_id}' to folder '{new_folder_id}': {e}"
             )
             raise
 

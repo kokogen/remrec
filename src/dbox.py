@@ -1,10 +1,13 @@
 # dbox.py
 import dropbox
-from dropbox.files import WriteMode, CommitInfo
+from dropbox.files import WriteMode, CommitInfo, FileMetadata as DropboxFileMetadata
 from dropbox.exceptions import ApiError
 import logging
 from .config import get_settings
 from .storage.base import StorageClient
+from .storage.dto import FileMetadata
+from typing import List
+import os
 
 
 class DropboxClient(StorageClient):
@@ -28,20 +31,31 @@ class DropboxClient(StorageClient):
             )
             raise
 
-    def list_files(self, folder_path: str):
+    def list_files(self, folder_path: str) -> List[FileMetadata]:
         """
         Returns a list of all files in the specified Dropbox directory,
         handling pagination automatically.
         """
         try:
             logging.info(f"Listing files in Dropbox path: '{folder_path}'")
-            result = self.dbx.files_list_folder(folder_path)
+            result = self.dbx.files_list_folder(folder_path, recursive=True) # Recursive listing
             all_entries = result.entries
             while result.has_more:
                 logging.info("Found more files, continuing listing...")
                 result = self.dbx.files_list_folder_continue(result.cursor)
                 all_entries.extend(result.entries)
-            return all_entries
+            
+            # Convert Dropbox metadata to our standardized DTO
+            file_dtos = []
+            for entry in all_entries:
+                if isinstance(entry, DropboxFileMetadata):
+                    file_dtos.append(FileMetadata(
+                        id=entry.path_display,
+                        name=entry.name,
+                        path=entry.path_display,
+                        folder_id=os.path.dirname(entry.path_display)
+                    ))
+            return file_dtos
         except ApiError as e:
             logging.error(f"Failed to list files in Dropbox path '{folder_path}': {e}")
             return []
@@ -55,8 +69,9 @@ class DropboxClient(StorageClient):
             logging.error(f"Failed to download file '{file_path}': {e}")
             raise
 
-    def upload_file(self, local_path: str, remote_path: str):
+    def upload_file(self, local_path: str, folder_id: str, filename: str):
         """Uploads a local file to Dropbox using chunked uploading for efficiency."""
+        remote_path = os.path.join(folder_id, filename)
         settings = get_settings()
         chunk_size = settings.DROPBOX_UPLOAD_CHUNK_SIZE
 
@@ -114,9 +129,14 @@ class DropboxClient(StorageClient):
                     )
                     raise
 
-    def move_file(self, from_path: str, to_path: str):
+    def move_file(self, file_id: str, new_folder_id: str):
         """Moves a file within Dropbox."""
         try:
+            # For Dropbox, file_id is the full source path.
+            from_path = file_id
+            filename = os.path.basename(from_path)
+            to_path = os.path.join(new_folder_id, filename)
+
             logging.info(f"Moving {from_path} to {to_path}...")
             self.dbx.files_move_v2(from_path, to_path)
         except ApiError as e:
