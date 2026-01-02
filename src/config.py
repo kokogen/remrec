@@ -108,9 +108,19 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Returns a cached instance of the application settings."""
+    """
+    Returns a cached instance of the application settings.
+    The first call to this function will initialize the settings.
+    """
     settings = Settings()
+    logging.info("--- Loaded Application Settings ---")
+    for key, value in settings.model_dump().items():
+        if any(s in key.lower() for s in ["key", "secret", "token"]):
+            logging.info(f"{key}: **********")
+        else:
+            logging.info(f"{key}: {value}")
+    logging.info("------------------------------------")
+    
     # Create buffer directory if it doesn't exist.
-    # Note: This has a side effect, but it's a practical place for it.
     (settings.BASE_DIR / "src" / "buf").mkdir(exist_ok=True)
     return settings
