@@ -45,26 +45,27 @@ def client():
 def test_list_files_success_single_page(client):
     """Тест успешного получения списка файлов (одна страница)."""
     mock_result = ListFolderResult(
-        entries=[FileMetadata(name="test.pdf")], has_more=False, cursor=None
+        entries=[FileMetadata(name="test.pdf", path_display="/some_path/test.pdf")], has_more=False, cursor=None
     )
     client.dbx.files_list_folder.return_value = mock_result
 
     files = client.list_files("/some_path")
 
-    client.dbx.files_list_folder.assert_called_once_with("/some_path")
+    client.dbx.files_list_folder.assert_called_once_with("/some_path", recursive=True)
     client.dbx.files_list_folder_continue.assert_not_called()
     assert len(files) == 1
     assert files[0].name == "test.pdf"
+    assert files[0].id == "/some_path/test.pdf"
 
 
 def test_list_files_with_pagination(client):
     """Тест успешного получения списка файлов с пагинацией."""
     # 1. Настройка моков для двух страниц
     mock_result_page1 = ListFolderResult(
-        entries=[FileMetadata(name="file1.pdf")], has_more=True, cursor="cursor123"
+        entries=[FileMetadata(name="file1.pdf", path_display="/some_path/file1.pdf")], has_more=True, cursor="cursor123"
     )
     mock_result_page2 = ListFolderResult(
-        entries=[FileMetadata(name="file2.pdf")], has_more=False, cursor=None
+        entries=[FileMetadata(name="file2.pdf", path_display="/some_path/file2.pdf")], has_more=False, cursor=None
     )
 
     # Настраиваем, чтобы первый вызов вернул первую страницу, а второй - вторую
@@ -75,7 +76,7 @@ def test_list_files_with_pagination(client):
     files = client.list_files("/some_path")
 
     # 3. Проверки
-    client.dbx.files_list_folder.assert_called_once_with("/some_path")
+    client.dbx.files_list_folder.assert_called_once_with("/some_path", recursive=True)
     client.dbx.files_list_folder_continue.assert_called_once_with("cursor123")
     assert len(files) == 2
     assert files[0].name == "file1.pdf"
@@ -120,11 +121,11 @@ def test_upload_file_success(mock_open, client):
     mock_local_path = MagicMock()
     mock_local_path.stat.return_value.st_size = 100  # Размер меньше чанка
 
-    client.upload_file(mock_local_path, "/dbx_path")
+    client.upload_file(mock_local_path, "/dbx_path", "test.pdf")
 
     mock_open.assert_called_once_with(mock_local_path, "rb")
     client.dbx.files_upload.assert_called_once_with(
-        b"file_content", "/dbx_path", mode=ANY
+        b"file_content", "/dbx_path/test.pdf", mode=ANY
     )
 
 

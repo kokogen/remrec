@@ -164,7 +164,8 @@ def test_list_files_success(client):
     files = client.list_files("folder_id")
 
     assert len(files) == 1
-    assert files[0]["name"] == "test.pdf"
+    assert files[0].name == "test.pdf"
+    assert files[0].id == "file_id"
 
 
 @patch("src.gdrive.MediaIoBaseDownload")
@@ -189,7 +190,7 @@ def test_upload_file_success(MockMediaFileUpload, client):
     """Test uploading a file successfully."""
     client._find_file_id_by_name = MagicMock(return_value=None)  # No existing file
 
-    client.upload_file("/local/path/test.pdf", "folder_id/test.pdf")
+    client.upload_file("/local/path/test.pdf", "folder_id", "test.pdf")
 
     MockMediaFileUpload.assert_called_once_with("/local/path/test.pdf", resumable=True)
     client.service.files().create.assert_called_once_with(
@@ -212,16 +213,14 @@ def test_delete_file_success(client):
 
 def test_move_file_success(client):
     """Test moving a file successfully."""
-    client._find_file_id_by_name = MagicMock(return_value="file_id_to_move")
     client.service.files().get().execute.return_value = {"parents": ["old_parent_id"]}
 
-    client.move_file("from_folder_id/test.pdf", "to_folder_id/test.pdf")
+    client.move_file("file_id_to_move", "to_folder_id")
 
     client.service.files().update.assert_called_once_with(
         fileId="file_id_to_move",
         addParents="to_folder_id",
         removeParents="old_parent_id",
-        body={"name": "test.pdf"},
         fields="id, parents",
     )
     client.service.files().update().execute.assert_called_once()

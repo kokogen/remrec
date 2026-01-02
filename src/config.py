@@ -1,169 +1,106 @@
 from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, Any
 import logging
 from functools import lru_cache
 
-
 class Settings(BaseSettings):
     """
-    Centralized application configuration with type validation.
-    Automatically reads variables from the environment and the token file.
+    Centralized application configuration.
+    It defines general settings and then provider-specific ones.
+    The validator ensures that the correct folder paths/IDs are assigned
+    to the generic SRC_FOLDER, DST_FOLDER, and FAILED_FOLDER attributes.
     """
-
-    TOKEN_STORAGE_FILE: str = ".dropbox.token"
-
     # --- General Settings ---
-    STORAGE_PROVIDER: str = "dropbox"  # "dropbox" or "gdrive"
+    STORAGE_PROVIDER: str = "dropbox"
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
     LOG_LEVEL: str = "INFO"
+    RECOGNITION_MODEL: str = "gemini-pro-vision"
+    RECOGNITION_PROMPT: str
+    PDF_DPI: int = 200
+    LOOP_SLEEP_SECONDS: int = 60
 
-    # --- Dropbox Settings (optional) ---
+    # --- Generic Folder Settings (populated by validator) ---
+    SRC_FOLDER: str = ""
+    DST_FOLDER: str = ""
+    FAILED_FOLDER: str = ""
+
+    # --- Dropbox Settings ---
     DROPBOX_APP_KEY: Optional[str] = None
     DROPBOX_APP_SECRET: Optional[str] = None
-    DROPBOX_REFRESH_TOKEN_ENV: Optional[str] = Field(
-        None, alias="DROPBOX_REFRESH_TOKEN"
-    )
+    DROPBOX_REFRESH_TOKEN_ENV: Optional[str] = Field(None, alias="DROPBOX_REFRESH_TOKEN")
     DROPBOX_REFRESH_TOKEN_FILE: Optional[str] = None
-    DROPBOX_SOURCE_DIR: Optional[str] = None
-    DROPBOX_DEST_DIR: Optional[str] = None
-    DROPBOX_FAILED_DIR: Optional[str] = None
+    DROPBOX_SOURCE_DIR: Optional[str] = "/"
+    DROPBOX_DEST_DIR: Optional[str] = "/processed"
+    DROPBOX_FAILED_DIR: Optional[str] = "/failed"
+    DROPBOX_UPLOAD_CHUNK_SIZE: int = 128 * 1024 * 1024
 
-    # --- Google Drive Settings (optional) ---
+    # --- Google Drive Settings ---
     GDRIVE_CREDENTIALS_JSON: Optional[str] = None
     GDRIVE_TOKEN_JSON: Optional[str] = None
     GDRIVE_SOURCE_FOLDER_ID: Optional[str] = None
     GDRIVE_DEST_FOLDER_ID: Optional[str] = None
     GDRIVE_FAILED_FOLDER_ID: Optional[str] = None
 
-    # --- AI Settings (must be set in .env) ---
-    RECOGNITION_MODEL: str = Field(
-        "gemini-pro-vision", validation_alias="RECOGNITION_MODEL"
-    )
-    DROPBOX_UPLOAD_CHUNK_SIZE: int = Field(
-        128 * 1024 * 1024, validation_alias="DROPBOX_UPLOAD_CHUNK_SIZE"
-    )  # 128 MB default
-    RECOGNITION_PROMPT: str
-    PDF_DPI: int
-
-    # --- Workflow Settings (must be set in .env) ---
-    LOOP_SLEEP_SECONDS: int
-
     # --- Constants and Computed Paths ---
-    BASE_DIR: Path = Path(__file__).resolve().parent
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent # Project root
+    TOKEN_STORAGE_FILE: Path = BASE_DIR / ".dropbox.token"
 
-    @model_validator(mode="before")
-    def clean_and_validate_storage_provider_settings(cls, values):
-        provider = values.get("STORAGE_PROVIDER")
-        if not provider:
-            # If STORAGE_PROVIDER is not in the .env file at all, let BaseSettings handle its default or error.
-            return values
+    @model_validator(mode='after')
+    def set_provider_folders(self) -> 'Settings':
+        if self.STORAGE_PROVIDER == 'dropbox':
+            self.SRC_FOLDER = self.DROPBOX_SOURCE_DIR
+            self.DST_FOLDER = self.DROPBOX_DEST_DIR
+            self.FAILED_FOLDER = self.DROPBOX_FAILED_DIR
 
-        if provider == "dropbox":
-            # Ensure Dropbox specific fields are present and remove GDrive specific fields
-            required_dropbox_keys = [
-                "DROPBOX_APP_KEY",
-                "DROPBOX_APP_SECRET",
-                "DROPBOX_SOURCE_DIR",
-                "DROPBOX_DEST_DIR",
-                "DROPBOX_FAILED_DIR",
-            ]
+            # Perform validation
+            if not self.DROPBOX_APP_KEY:
+                raise ValueError("For Dropbox, APP_KEY must be set.")
+            if not self.DROPBOX_APP_SECRET:
+                raise ValueError("For Dropbox, APP_SECRET must be set.")
+            if self.DROPBOX_SOURCE_DIR is None: # Can be empty string, but not None
+                raise ValueError("For Dropbox, SOURCE_DIR must be set (can be empty for root).")
+            if not self.DST_FOLDER: # DST_FOLDER gets value from DROPBOX_DEST_DIR
+                raise ValueError("For Dropbox, DEST_FOLDER must be set.")
+            if not self.FAILED_FOLDER: # FAILED_FOLDER gets value from DROPBOX_FAILED_DIR
+                raise ValueError("For Dropbox, FAILED_FOLDER must be set.")
 
-            # Check for refresh token, either via env var or file (which is handled later)
-            has_refresh_token = (
-                values.get("DROPBOX_REFRESH_TOKEN") is not None
-                and str(values.get("DROPBOX_REFRESH_TOKEN")).strip() != ""
-            )
-            # The model_post_init handles DROPBOX_REFRESH_TOKEN_FILE as a fallback.
-            # Here we only validate the env var. If neither env var nor file is present, the client will fail later.
-            if not has_refresh_token:
-                logging.warning(
-                    "DROPBOX_REFRESH_TOKEN not found in environment. Will attempt to load from .dropbox.token file."
-                )
+            if not (self.DROPBOX_REFRESH_TOKEN_ENV or self.TOKEN_STORAGE_FILE.exists()):
+                 logging.warning("Dropbox refresh token not found in env or file.")
 
-            for key in required_dropbox_keys:
-                if key == "DROPBOX_SOURCE_DIR":
-                    # Allow empty string for source dir, which means Dropbox root
-                    if values.get(key) is None:
-                        raise ValueError(
-                            f"{key} is required when STORAGE_PROVIDER is 'dropbox'"
-                        )
-                elif not values.get(key) or not str(values.get(key)).strip():
-                    raise ValueError(
-                        f"{key} is required and cannot be empty when STORAGE_PROVIDER is 'dropbox'"
-                    )
-
-            # Remove GDrive specific settings if they are present
-            gdrive_keys = [
-                "GDRIVE_CREDENTIALS_JSON",
-                "GDRIVE_TOKEN_JSON",
-                "GDRIVE_SOURCE_FOLDER_ID",
-                "GDRIVE_DEST_FOLDER_ID",
-                "GDRIVE_FAILED_FOLDER_ID",
-            ]
-            for key in gdrive_keys:
-                if key in values:
-                    del values[key]
-
-        elif provider == "gdrive":
-            # Ensure GDrive specific fields are present and remove Dropbox specific fields
-            required_gdrive_keys = [
-                "GDRIVE_CREDENTIALS_JSON",
-                "GDRIVE_TOKEN_JSON",
-                "GDRIVE_SOURCE_FOLDER_ID",
-                "GDRIVE_DEST_FOLDER_ID",
-                "GDRIVE_FAILED_FOLDER_ID",
-            ]
-            for key in required_gdrive_keys:
-                if not values.get(key):
-                    raise ValueError(
-                        f"{key} is required when STORAGE_PROVIDER is 'gdrive'"
-                    )
-
-            # Remove Dropbox specific settings if they are present
-            dropbox_keys = [
-                "DROPBOX_APP_KEY",
-                "DROPBOX_APP_SECRET",
-                "DROPBOX_REFRESH_TOKEN",
-                "DROPBOX_SOURCE_DIR",
-                "DROPBOX_DEST_DIR",
-                "DROPBOX_FAILED_DIR",
-            ]
-            for key in dropbox_keys:
-                if key in values:
-                    del values[key]
-
+        elif self.STORAGE_PROVIDER == 'gdrive':
+            self.SRC_FOLDER = self.GDRIVE_SOURCE_FOLDER_ID
+            self.DST_FOLDER = self.GDRIVE_DEST_FOLDER_ID
+            self.FAILED_FOLDER = self.GDRIVE_FAILED_FOLDER_ID
+            if not all([self.GDRIVE_CREDENTIALS_JSON, self.GDRIVE_TOKEN_JSON, self.SRC_FOLDER, self.DST_FOLDER, self.FAILED_FOLDER]):
+                raise ValueError("For Google Drive, CREDENTIALS_JSON, TOKEN_JSON and all FOLDER_IDs must be set.")
         else:
             raise ValueError("Invalid STORAGE_PROVIDER. Must be 'dropbox' or 'gdrive'.")
+        return self
 
-        return values
-
-    def model_post_init(self, __context):
-        """
-        After initial settings are loaded from the environment,
-        try to load a refresh token from the local token file as a fallback.
-        """
-        token_file = self.BASE_DIR / self.TOKEN_STORAGE_FILE
-        if token_file.is_file():
-            content = token_file.read_text().strip()
-            if content:
-                self.DROPBOX_REFRESH_TOKEN_FILE = content
-                logging.info(f"Found refresh token in file: {token_file}")
+    def model_post_init(self, __context: Any) -> None:
+        """Load Dropbox token from file if it exists."""
+        if self.TOKEN_STORAGE_FILE.is_file():
+            self.DROPBOX_REFRESH_TOKEN_FILE = self.TOKEN_STORAGE_FILE.read_text().strip()
+            logging.info(f"Loaded Dropbox refresh token from {self.TOKEN_STORAGE_FILE}")
 
     @property
     def LOCAL_BUF_DIR(self) -> Path:
-        return self.BASE_DIR / "buf"
+        return self.BASE_DIR / "src" / "buf"
 
     @property
     def FONT_PATH(self) -> Path:
-        return self.BASE_DIR.parent / "DejaVuSans.ttf"
+        return self.BASE_DIR / "DejaVuSans.ttf"
 
     @property
     def LOG_FILE(self) -> Path:
         return self.BASE_DIR / "app.log"
 
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -172,5 +109,14 @@ def get_settings() -> Settings:
     The first call to this function will initialize the settings.
     """
     settings = Settings()
-    settings.LOCAL_BUF_DIR.mkdir(exist_ok=True)
+    logging.info("--- Loaded Application Settings ---")
+    for key, value in settings.model_dump().items():
+        if any(s in key.lower() for s in ["key", "secret", "token"]):
+            logging.info(f"{key}: **********")
+        else:
+            logging.info(f"{key}: {value}")
+    logging.info("------------------------------------")
+    
+    # Create buffer directory if it doesn't exist.
+    (settings.BASE_DIR / "src" / "buf").mkdir(exist_ok=True)
     return settings
