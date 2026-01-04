@@ -30,3 +30,7 @@ def test_create_reflowed_pdf(
     mock_registerFont.assert_called_once()
     MockSimpleDocTemplate.assert_called_once_with(str(output_pdf), pagesize=ANY)
     mock_doc.build.assert_called_once()
+    # Verify that the style was created with the correct font name in the implementation
+    MockParagraphStyle.assert_called_with(
+        name="CustomStyle", parent=ANY, fontName="DejaVuSans", fontSize=11, leading=14
+    )

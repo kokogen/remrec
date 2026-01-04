@@ -21,6 +21,14 @@ then
     exit 1
 fi
 
+# Check if 'jq' is installed
+if ! command -v jq &> /dev/null
+then
+    echo "ERROR: 'jq' is not installed."
+    echo "Please install 'jq' to use this script. Instructions: https://stedolan.github.io/jq/download/"
+    exit 1
+fi
+
 # Ensure user is logged into gh CLI
 if ! gh auth status &> /dev/null
 then
@@ -30,8 +38,11 @@ then
 fi
 
 # Get the GitHub repository owner and name from the current git repository
-REPO_OWNER=$(gh repo view --json owner | jq -r '.owner.login')
-REPO_NAME=$(gh repo view --json name | jq -r '.name')
+# Use 'gh repo view --json' and parse with 'jq'
+REPO_INFO=$(gh repo view --json owner,name)
+REPO_OWNER=$(echo "$REPO_INFO" | jq -r '.owner.login')
+REPO_NAME=$(echo "$REPO_INFO" | jq -r '.name')
+
 
 if [ -z "$REPO_OWNER" ] || [ -z "$REPO_NAME" ]; then
     echo "ERROR: Could not determine GitHub repository owner/name. Ensure you are in a git repository linked to GitHub."
@@ -47,56 +58,38 @@ echo "# DO NOT commit this file to git." >> .env
 echo "" >> .env
 
 # --- Fetch GitHub Secrets ---
-echo "Fetching secrets from GitHub environment..."
-# Note: 'gh secret list' does not show values, only names.
-# To get values, we would need 'gh api' calls, which might require specific permissions or PAT scope.
-# For simplicity and to avoid over-complicating this manual script, we'll focus on common ones.
-# The user will need to manually fill in the secrets.
-
-# Identify the common secret names that are expected in .env
-# This list should match the secrets defined in config.py or .env.example
-COMMON_SECRETS=("DROPBOX_APP_KEY" "DROPBOX_APP_SECRET" "OPENAI_API_KEY" "DOCKER_USERNAME" "DOCKER_HUB_ACCESS_TOKEN")
-
-for secret_name in "${COMMON_SECRETS[@]}"; do
+echo "Fetching secrets from GitHub 'main' environment..."
+gh secret list --env main --json name | jq -r '.[].name' | while read -r secret_name; do
     echo "Fetching secret: $secret_name"
-    # Attempt to fetch the secret value using 'gh api'
-    # This assumes the user has appropriate PAT scope (repo, admin:org) to read environment secrets
-    # This command structure might need adjustment based on environment secret API.
-    # A more robust way might involve direct API calls or checking 'gh secret get --env main' if available
-    SECRET_VALUE=$(gh secret get $secret_name --env main --jq '.value' 2>/dev/null || echo "")
+    # 'gh secret get' prints the value directly to stdout.
+    # Redirect stderr to /dev/null to suppress "not found" errors if a secret is listed but not accessible.
+    SECRET_VALUE=$(gh secret get "$secret_name" --env main 2>/dev/null || echo "")
     if [ -n "$SECRET_VALUE" ]; then
-        echo "${secret_name}=${SECRET_VALUE}" >> .env
+        # Quote values to be safe
+        echo "${secret_name}=\"${SECRET_VALUE}\"" >> .env
         echo "  - Added ${secret_name}"
     else
         echo "${secret_name}=" >> .env
-        echo "  - Added ${secret_name} (value not retrieved, please fill manually if needed)"
+        echo "  - WARN: Value for secret '$secret_name' not retrieved. Added as empty."
     fi
 done
 
+echo "" >> .env
+
 # --- Fetch GitHub Variables ---
-echo "Fetching variables from GitHub environment..."
-# gh variable list command for environment is not directly available like secrets
-# Need to use 'gh api'
-# This is a placeholder as fetching environment variables is less direct.
-# Example: gh api "repos/${REPO_OWNER}/${REPO_NAME}/actions/variables/environments/main" -X GET
-# For simplicity, we assume main variables are usually in .env.example.
-
-# Identify common variable names that are expected in .env (non-secret)
-# This list should match the non-secret variables defined in config.py or .env.example
-# For now, we list placeholders.
-COMMON_VARIABLES=("REMREC_IMAGE_TAG" "LOG_LEVEL" "LOOP_SLEEP_SECONDS" "PDF_DPI" "RECOGNITION_MODEL" "RECOGNITION_PROMPT" "DROPBOX_UPLOAD_CHUNK_SIZE" "DROPBOX_SOURCE_DIR" "DROPBOX_DEST_DIR" "DROPBOX_FAILED_DIR")
-
-for var_name in "${COMMON_VARIABLES[@]}"; do
+echo "Fetching variables from GitHub 'main' environment..."
+gh variable list --env main --json name | jq -r '.[].name' | while read -r var_name; do
     echo "Fetching variable: $var_name"
-    # Attempt to fetch the variable value using 'gh api' or a direct method if available
-    # For now, we add placeholders. User might need to manually fill these or enhance this script.
-    VAR_VALUE=$(gh variable get $var_name --env main --jq '.value' 2>/dev/null || echo "")
+    # 'gh variable get' prints the value directly to stdout.
+    # Redirect stderr to /dev/null to suppress errors if not found.
+    VAR_VALUE=$(gh variable get "$var_name" --env main 2>/dev/null || echo "")
     if [ -n "$VAR_VALUE" ]; then
-        echo "${var_name}=${VAR_VALUE}" >> .env
+        # Quote values to handle spaces and special characters
+        echo "${var_name}=\"${VAR_VALUE}\"" >> .env
         echo "  - Added ${var_name}"
     else
         echo "${var_name}=" >> .env
-        echo "  - Added ${var_name} (value not retrieved, please fill manually if needed)"
+        echo "  - WARN: Value for variable '$var_name' not retrieved. Added as empty."
     fi
 done
 

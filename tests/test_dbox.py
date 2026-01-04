@@ -45,7 +45,9 @@ def client():
 def test_list_files_success_single_page(client):
     """Тест успешного получения списка файлов (одна страница)."""
     mock_result = ListFolderResult(
-        entries=[FileMetadata(name="test.pdf")], has_more=False, cursor=None
+        entries=[FileMetadata(name="test.pdf", path_display="/some_path/test.pdf")],
+        has_more=False,
+        cursor=None,
     )
     client.dbx.files_list_folder.return_value = mock_result
 
@@ -61,10 +63,14 @@ def test_list_files_with_pagination(client):
     """Тест успешного получения списка файлов с пагинацией."""
     # 1. Настройка моков для двух страниц
     mock_result_page1 = ListFolderResult(
-        entries=[FileMetadata(name="file1.pdf")], has_more=True, cursor="cursor123"
+        entries=[FileMetadata(name="file1.pdf", path_display="/some_path/file1.pdf")],
+        has_more=True,
+        cursor="cursor123",
     )
     mock_result_page2 = ListFolderResult(
-        entries=[FileMetadata(name="file2.pdf")], has_more=False, cursor=None
+        entries=[FileMetadata(name="file2.pdf", path_display="/some_path/file2.pdf")],
+        has_more=False,
+        cursor=None,
     )
 
     # Настраиваем, чтобы первый вызов вернул первую страницу, а второй - вторую

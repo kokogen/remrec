@@ -84,8 +84,12 @@ def process_single_file(storage_client: StorageClient, file_entry: Any):
 
         # 5. Upload the result
         try:
-            dest_path = f"{dest_dir}/{result_pdf_path.name}"
-            storage_client.upload_file(result_pdf_path, dest_path)
+            # Use the new abstract upload method
+            storage_client.upload_file(
+                local_path=result_pdf_path,
+                folder_id=settings.DST_FOLDER,
+                filename=result_pdf_path.name,
+            )
         except Exception as e:
             raise TransientError(f"API error during upload: {e}") from e
 

@@ -113,7 +113,9 @@ class GoogleDriveClient(StorageClient):
         """
         try:
             query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
-            response = self.service.files().list(q=query, fields="files(id)").execute()
+            response = (
+                self.service.files().list(q=query, fields="files(id, name)").execute()
+            )
             files = response.get("files", [])
             return files[0]["id"] if files else None
         except HttpError as e:
@@ -135,7 +137,17 @@ class GoogleDriveClient(StorageClient):
                 )
                 .execute()
             )
-            return response.get("files", [])
+            files = response.get("files", [])
+            # Convert the raw API response to a list of FileMetadata DTOs
+            return [
+                FileMetadata(
+                    id=item["id"],
+                    name=item["name"],
+                    path=item["id"],  # For GDrive, ID is the most reliable path
+                    folder_id=folder_id,
+                )
+                for item in files
+            ]
         except Exception as e:
             logging.error(
                 f"Failed to list files in Google Drive folder ID '{folder_id}': {e}"
@@ -231,7 +243,7 @@ class GoogleDriveClient(StorageClient):
 
         try:
             logging.info(
-                f"Moving file '{from_filename}' from folder {from_folder_id} to folder {to_folder_id}..."
+                f"Moving file ID '{file_id}' to folder ID '{new_folder_id}'..."
             )
             # Retrieve the existing parents to remove them
             file = self.service.files().get(fileId=file_id, fields="parents").execute()
@@ -248,7 +260,7 @@ class GoogleDriveClient(StorageClient):
                 fields="id, parents",
             ).execute()
             logging.info(
-                f"Successfully moved '{from_filename}' to folder ID '{to_folder_id}'."
+                f"Successfully moved file ID '{file_id}' to folder ID '{new_folder_id}'."
             )
         except HttpError as e:
             logging.error(

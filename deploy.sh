@@ -11,18 +11,16 @@ REMOTE_PROJECT_PATH="/volume1/docker/remrec" # Path to your project on Synology 
 REMOTE_LOG_FILE_PATH="${REMOTE_PROJECT_PATH}/app.log" # Path to the app.log file on Synology
 REMOTE_TOKEN_FILE_PATH="${REMOTE_PROJECT_PATH}/.dropbox.token" # Path to the Dropbox token file on Synology
 
-# Get the Docker image tag. Argument takes precedence.
-if [ -z "$1" ]; then
-    echo "Usage: $0 <docker_image_tag>"
-    echo "Please provide the Docker image tag to deploy."
+# Check for REMREC_IMAGE_TAG in .env file
+if ! grep -q "^REMREC_IMAGE_TAG=" .env; then
+    echo "Error: REMREC_IMAGE_TAG is not defined in the .env file."
     exit 1
 fi
-IMAGE_TAG="$1"
 
 echo "--- Deploying Docker Image to Synology ---"
 echo "Target Synology: ${SYNOLOGY_USER}@${SYNOLOGY_HOST}"
 echo "Remote Project Path: ${REMOTE_PROJECT_PATH}"
-echo "Image Tag to Deploy: ${IMAGE_TAG}"
+echo "Image Tag to Deploy: $(grep '^REMREC_IMAGE_TAG=' .env | cut -d '=' -f2)"
 
 # Check if local .env file exists
 if [ ! -f .env ]; then
@@ -73,16 +71,10 @@ SSH_COMMANDS=$(cat <<EOF
     fi
     echo "Using docker-compose command: \${DOCKER_COMPOSE_CMD}"
 
-    # Update the REMREC_IMAGE_TAG in the .env file
-    if [ -f .env ]; then
-        echo "Updating REMREC_IMAGE_TAG in .env on Synology..."
-        sed -i'' -e "s/^REMREC_IMAGE_TAG=.*$/REMREC_IMAGE_TAG=${IMAGE_TAG}/g" .env
-    else
-        echo ".env file not found on Synology at ${REMOTE_PROJECT_PATH}. Creating a new one."
-        echo "REMREC_IMAGE_TAG=${IMAGE_TAG}" > .env
-    fi
+    # The .env file is now the single source of truth, so no update is needed here.
+    # The correct REMREC_IMAGE_TAG is already in the .env file copied from local.
 
-    echo "Pulling Docker image: kokogen/remrec:${IMAGE_TAG}..."
+    echo "Pulling Docker image..."
     sudo \${DOCKER_COMPOSE_CMD} pull
 
     echo "Restarting Docker containers..."

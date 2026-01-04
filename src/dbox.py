@@ -35,13 +35,26 @@ class DropboxClient(StorageClient):
         """
         try:
             logging.info(f"Listing files in Dropbox path: '{folder_path}'")
-            result = self.dbx.files_list_folder(folder_path)
+            result = self.dbx.files_list_folder(folder_path)  # Non-recursive
             all_entries = result.entries
             while result.has_more:
                 logging.info("Found more files, continuing listing...")
                 result = self.dbx.files_list_folder_continue(result.cursor)
                 all_entries.extend(result.entries)
-            return all_entries
+
+            # Convert Dropbox metadata to our standardized DTO
+            file_dtos = []
+            for entry in all_entries:
+                if isinstance(entry, DropboxFileMetadata):
+                    file_dtos.append(
+                        FileMetadata(
+                            id=entry.path_display,
+                            name=entry.name,
+                            path=entry.path_display,
+                            folder_id=os.path.dirname(entry.path_display),
+                        )
+                    )
+            return file_dtos
         except ApiError as e:
             logging.error(f"Failed to list files in Dropbox path '{folder_path}': {e}")
             return []
