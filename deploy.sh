@@ -11,17 +11,16 @@ REMOTE_PROJECT_PATH="/volume1/docker/remrec" # Path to your project on Synology 
 REMOTE_LOG_FILE_PATH="${REMOTE_PROJECT_PATH}/app.log" # Path to the app.log file on Synology
 REMOTE_TOKEN_FILE_PATH="${REMOTE_PROJECT_PATH}/.dropbox.token" # Path to the Dropbox token file on Synology
 
-# Get the Docker image tag from the .env file
-IMAGE_TAG=$(grep '^REMREC_IMAGE_TAG=' .env | cut -d '=' -f2)
-if [ -z "$IMAGE_TAG" ]; then
-    echo "REMREC_IMAGE_TAG not found or is empty in the .env file."
+# Check for REMREC_IMAGE_TAG in .env file
+if ! grep -q "^REMREC_IMAGE_TAG=" .env; then
+    echo "Error: REMREC_IMAGE_TAG is not defined in the .env file."
     exit 1
 fi
 
 echo "--- Deploying Docker Image to Synology ---"
 echo "Target Synology: ${SYNOLOGY_USER}@${SYNOLOGY_HOST}"
 echo "Remote Project Path: ${REMOTE_PROJECT_PATH}"
-echo "Image Tag to Deploy: ${IMAGE_TAG}"
+echo "Image Tag to Deploy: $(grep '^REMREC_IMAGE_TAG=' .env | cut -d '=' -f2)"
 
 # Check if local .env file exists
 if [ ! -f .env ]; then
