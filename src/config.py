@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str
     LOG_LEVEL: str = "INFO"
 
+    # --- Dynamic Provider-Specific Settings (set by validator) ---
+    SRC_FOLDER: Optional[str] = None
+    DST_FOLDER: Optional[str] = None
+    FAILED_FOLDER: Optional[str] = None
+
     # --- Dropbox Settings (optional) ---
     DROPBOX_APP_KEY: Optional[str] = None
     DROPBOX_APP_SECRET: Optional[str] = None
