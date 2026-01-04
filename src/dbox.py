@@ -1,6 +1,6 @@
 # dbox.py
 import dropbox
-from dropbox.files import WriteMode, CommitInfo, FileMetadata as DropboxFileMetadata, ListFolderResult
+from dropbox.files import WriteMode, CommitInfo, FileMetadata as DropboxFileMetadata
 from dropbox.exceptions import ApiError
 import logging
 import os

@@ -24,10 +24,8 @@ def process_single_file(storage_client: StorageClient, file_entry: Any):
     if is_dropbox:
         file_name = file_entry.name
         file_path = file_entry.path_display
-        dest_dir = settings.DROPBOX_DEST_DIR
     else:  # Google Drive
         file_name = file_entry.get("name")
-        dest_dir = settings.GDRIVE_DEST_FOLDER_ID
         file_id = file_entry.get("id")  # Use the file ID directly
         # file_path is not used for Google Drive download/delete anymore
 
