@@ -119,7 +119,6 @@ class Settings(BaseSettings):
         return self.BASE_DIR / "app.log"
 
 
-
 @lru_cache()
 def get_settings() -> Settings:
     """

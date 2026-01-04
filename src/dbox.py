@@ -6,7 +6,7 @@ import logging
 import os
 from .config import get_settings
 from .storage.base import StorageClient
-from .storage.dto import FileMetadata # Our custom DTO
+from .storage.dto import FileMetadata  # Our custom DTO
 
 
 class DropboxClient(StorageClient):
