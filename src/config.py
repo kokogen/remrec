@@ -1,5 +1,5 @@
 from pathlib import Path
-from pydantic import Field, model_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Any, Optional
 import logging
@@ -58,8 +58,7 @@ class Settings(BaseSettings):
     BASE_DIR: Path = Path(__file__).resolve().parent.parent  # Project root
     TOKEN_STORAGE_FILE: Path = BASE_DIR / ".dropbox.token"
 
-    @model_validator(mode="after")
-    def set_provider_folders(self) -> "Settings":
+    def _set_provider_folders(self) -> None:
         if self.STORAGE_PROVIDER == "dropbox":
             self.SRC_FOLDER = self.DROPBOX_SOURCE_DIR
             self.DST_FOLDER = self.DROPBOX_DEST_DIR
@@ -104,12 +103,14 @@ class Settings(BaseSettings):
             raise ValueError("Invalid STORAGE_PROVIDER. Must be 'dropbox' or 'gdrive'.")
 
     def model_post_init(self, __context: Any) -> None:
-        """Load Dropbox token from file if it exists."""
+        """Load Dropbox token from file if it exists and run validations."""
         if self.TOKEN_STORAGE_FILE.is_file():
             self.DROPBOX_REFRESH_TOKEN_FILE = (
                 self.TOKEN_STORAGE_FILE.read_text().strip()
             )
             logging.info(f"Loaded Dropbox refresh token from {self.TOKEN_STORAGE_FILE}")
+
+        self._set_provider_folders()
 
     @property
     def LOCAL_BUF_DIR(self) -> Path:
