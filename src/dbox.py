@@ -1,10 +1,12 @@
 # dbox.py
 import dropbox
-from dropbox.files import WriteMode, CommitInfo
+from dropbox.files import WriteMode, CommitInfo, FileMetadata as DropboxFileMetadata, ListFolderResult
 from dropbox.exceptions import ApiError
 import logging
+import os
 from .config import get_settings
 from .storage.base import StorageClient
+from .storage.dto import FileMetadata # Our custom DTO
 
 
 class DropboxClient(StorageClient):

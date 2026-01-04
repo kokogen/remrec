@@ -1,7 +1,7 @@
 from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Any, Optional
 import logging
 from functools import lru_cache
 
@@ -112,7 +112,7 @@ class Settings(BaseSettings):
 
     @property
     def FONT_PATH(self) -> Path:
-        return self.BASE_DIR.parent / "DejaVuSans.ttf"
+        return self.BASE_DIR / "DejaVuSans.ttf"
 
     @property
     def LOG_FILE(self) -> Path:

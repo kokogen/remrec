@@ -5,6 +5,7 @@ import io
 import os
 
 from .storage.base import StorageClient
+from .storage.dto import FileMetadata # Custom DTO
 from typing import List, Any
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -243,7 +244,7 @@ class GoogleDriveClient(StorageClient):
 
         try:
             logging.info(
-                f"Moving file ID '{file_id}' to folder ID '{new_folder_id}'..."
+                f"Moving file ID '{file_id}' to folder ID '{to_folder_id}'..."
             )
             # Retrieve the existing parents to remove them
             file = self.service.files().get(fileId=file_id, fields="parents").execute()
@@ -260,7 +261,7 @@ class GoogleDriveClient(StorageClient):
                 fields="id, parents",
             ).execute()
             logging.info(
-                f"Successfully moved file ID '{file_id}' to folder ID '{new_folder_id}'."
+                f"Successfully moved file ID '{file_id}' to folder ID '{to_folder_id}'."
             )
         except HttpError as e:
             logging.error(

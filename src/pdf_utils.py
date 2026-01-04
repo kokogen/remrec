@@ -5,6 +5,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.pdfmetrics import registerFontFamily
 from reportlab.pdfbase.ttfonts import TTFont
 
 
@@ -22,6 +23,13 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
 
     # Register the font
     pdfmetrics.registerFont(TTFont("DejaVuSans", str(settings.FONT_PATH)))
+    pdfmetrics.registerFontFamily(
+        "DejaVuSans",
+        normal="DejaVuSans",
+        bold="DejaVuSans",  # Use the same font for bold if no bold variant exists
+        italic="DejaVuSans",  # Use the same font for italic if no italic variant exists
+        boldItalic="DejaVuSans",
+    )
 
     # Basic setup for the document
     doc = SimpleDocTemplate(str(pdf_path), pagesize=letter)

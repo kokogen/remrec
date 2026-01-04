@@ -28,10 +28,10 @@ def test_process_single_file_success(
     # Setup
     mock_get_settings.return_value = mock_settings
     mock_convert_from_path.return_value = [MagicMock()]
-    mock_recognize.return_value = "text1"
-
     file_entry = MagicMock()
     file_entry.name = "test.pdf"
+    file_entry.id = "file_id_123"  # For Google Drive deletion
+    file_entry.path_display = "file_id_123" # For Dropbox deletion
 
     # Mock LOCAL_BUF_DIR to be a real Path object for the test
     mock_settings.LOCAL_BUF_DIR = Path("/tmp/buf")

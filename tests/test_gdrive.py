@@ -164,7 +164,7 @@ def test_list_files_success(client):
     files = client.list_files("folder_id")
 
     assert len(files) == 1
-    assert files[0]["name"] == "test.pdf"
+    assert files[0].name == "test.pdf"
 
 
 @patch("src.gdrive.MediaIoBaseDownload")
