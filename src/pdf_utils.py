@@ -14,21 +14,24 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     reflowing the text to fit the page width and adding page breaks.
     """
     settings = get_settings()
-    if not settings.FONT_PATH.exists():
-        logging.error(
-            f"Font file not found at {settings.FONT_PATH}. Cannot create PDF."
-        )
-        raise FileNotFoundError(f"Font file not found: {settings.FONT_PATH}")
+    font_name = "DejaVuSans"
 
-    # Register the font
-    pdfmetrics.registerFont(TTFont("DejaVuSans", str(settings.FONT_PATH)))
-    pdfmetrics.registerFontFamily(
-        "DejaVuSans",
-        normal="DejaVuSans",
-        bold="DejaVuSans",  # Use the same font for bold if no bold variant exists
-        italic="DejaVuSans",  # Use the same font for italic if no italic variant exists
-        boldItalic="DejaVuSans",
-    )
+    if settings.FONT_PATH.exists():
+        # Register the font if it exists
+        pdfmetrics.registerFont(TTFont(font_name, str(settings.FONT_PATH)))
+        pdfmetrics.registerFontFamily(
+            font_name,
+            normal=font_name,
+            bold=font_name,
+            italic=font_name,
+            boldItalic=font_name,
+        )
+    else:
+        # Fallback to a default font if the custom font is not found
+        logging.warning(
+            f"Font file not found at {settings.FONT_PATH}. Falling back to Helvetica."
+        )
+        font_name = "Helvetica"
 
     # Basic setup for the document
     doc = SimpleDocTemplate(str(pdf_path), pagesize=letter)
@@ -37,7 +40,7 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     custom_style = ParagraphStyle(
         name="CustomStyle",
         parent=styles["Normal"],
-        fontName="DejaVuSans",
+        fontName=font_name,
         fontSize=11,
         leading=14,
     )
