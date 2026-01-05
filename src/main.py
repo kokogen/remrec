@@ -2,6 +2,7 @@
 import logging
 import time
 from typing import Optional, Tuple
+import dropbox
 
 from .config import get_settings
 from .dbox import DropboxClient
@@ -49,48 +50,6 @@ def setup_logging():
     logging.getLogger("googleapiclient").setLevel(logging.WARNING)
 
 
-def _init_dropbox_client(settings) -> Optional[DropboxClient]:
-    """
-    Initializes the Dropbox client by trying environment variables and then a token file.
-    """
-    storage_client = None
-    # 1. Try to use the token from the environment variable (primary for production)
-    if settings.DROPBOX_REFRESH_TOKEN_ENV:
-        try:
-            logging.info(
-                "Attempting to connect to Dropbox using token from environment variable..."
-            )
-            storage_client = DropboxClient(
-                app_key=settings.DROPBOX_APP_KEY,
-                app_secret=settings.DROPBOX_APP_SECRET,
-                refresh_token=settings.DROPBOX_REFRESH_TOKEN_ENV,
-            )
-        except Exception:
-            logging.warning(
-                "Failed to connect using token from environment variable. It might be invalid or expired."
-            )
-            storage_client = None
-
-    # 2. If the first attempt failed or was skipped, try the token from the file (fallback for local dev)
-    if storage_client is None and settings.DROPBOX_REFRESH_TOKEN_FILE:
-        try:
-            logging.info(
-                "Attempting to connect to Dropbox using token from '.dropbox.token' file..."
-            )
-            storage_client = DropboxClient(
-                app_key=settings.DROPBOX_APP_KEY,
-                app_secret=settings.DROPBOX_APP_SECRET,
-                refresh_token=settings.DROPBOX_REFRESH_TOKEN_FILE,
-            )
-        except Exception as e:
-            logging.error(
-                f"Failed to connect using token from file. Error: {e}", exc_info=True
-            )
-            storage_client = None
-
-    return storage_client
-
-
 def _init_gdrive_client(settings) -> Optional[GoogleDriveClient]:
     """Initializes and returns a GoogleDriveClient."""
     try:
@@ -119,14 +78,27 @@ def initialize_storage_client(
 
     if settings.STORAGE_PROVIDER == "dropbox":
         logging.info("Using Dropbox storage provider.")
-        if not (
-            settings.DROPBOX_REFRESH_TOKEN_ENV or settings.DROPBOX_REFRESH_TOKEN_FILE
-        ):
-            logging.error("Dropbox token not found in env var or file.")
         source_path = settings.DROPBOX_SOURCE_DIR
         dest_path = settings.DROPBOX_DEST_DIR
         failed_path = settings.DROPBOX_FAILED_DIR
-        storage_client = _init_dropbox_client(settings)
+        try:
+            storage_client = DropboxClient(
+                app_key=settings.DROPBOX_APP_KEY,
+                app_secret=settings.DROPBOX_APP_SECRET,
+                refresh_token=settings.DROPBOX_REFRESH_TOKEN,
+            )
+            logging.info("Dropbox client initialized successfully.")
+        except dropbox.exceptions.AuthError as e:
+            logging.error(
+                f"Dropbox authentication failed. Please check your token and app credentials. Error: {e}"
+            )
+            storage_client = None
+        except Exception as e:
+            logging.error(
+                f"Failed to initialize Dropbox client due to an unexpected error: {e}",
+                exc_info=True,
+            )
+            storage_client = None
 
     elif settings.STORAGE_PROVIDER == "gdrive":
         logging.info("Using Google Drive storage provider.")
