@@ -20,46 +20,27 @@ class GoogleDriveClient(StorageClient):
 
     def __init__(self, credentials_json: str, token_json: str):
         try:
-            token_info = json.loads(token_json)
+            creds_data = json.loads(credentials_json)
+            token_data = json.loads(token_json)
 
-            # The credentials_json can come from a file or environment variable.
-            # It should contain the client_id, client_secret, and redirect_uris.
-            credentials_data = json.loads(credentials_json)
+            creds = Credentials.from_authorized_user_info(
+                info=token_data,
+            )
 
-            creds = Credentials.from_authorized_user_info(info=token_info)
-
-            # Ensure that the client_id and client_secret from credentials_json are used
-            # This is important if creds was generated without these initially or if they need to be updated
-            if "client_id" in credentials_data and "client_secret" in credentials_data:
-                creds.client_id = credentials_data["client_id"]
-                creds.client_secret = credentials_data["client_secret"]
-            else:
-                logging.warning(
-                    "client_id or client_secret not found in GDRIVE_CREDENTIALS_JSON. Using existing from token_json if available."
-                )
+            # The `from_authorized_user_info` method might not automatically pick up
+            # the client_id and client_secret if they are not in the token file.
+            # We explicitly set them from the credentials file.
+            creds.client_id = creds_data.get("client_id")
+            creds.client_secret = creds_data.get("client_secret")
 
             self.service = build("drive", "v3", credentials=creds)
-            self.folder_ids_cache = {}  # Initialize cache
             logging.info("Google Drive client initialized successfully.")
+        except (json.JSONDecodeError, KeyError) as e:
+            logging.error(f"Failed to parse credentials or token JSON. Error: {e}")
+            raise PermanentError("Invalid Google Drive credentials format.") from e
         except Exception as e:
             logging.error(f"Failed to initialize Google Drive client. Error: {e}")
             raise
-
-    def _get_folder_id_by_name(self, name: str, parent_id: str = "root") -> str | None:
-        """
-        Retrieves the ID of a folder by its name within a parent folder.
-        """
-        query = (
-            f"name='{name}' and mimeType='application/vnd.google-apps.folder' and "
-            f"'{parent_id}' in parents and trashed=false"
-        )
-        try:
-            response = self.service.files().list(q=query, fields="files(id)").execute()
-            files = response.get("files", [])
-            return files[0]["id"] if files else None
-        except HttpError as e:
-            logging.error(f"Failed to search for folder '{name}': {e}")
-            return None
 
     def _find_file_id_by_name(self, filename: str, folder_id: str) -> str | None:
         """

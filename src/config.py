@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     SRC_FOLDER: Optional[str] = None
     DST_FOLDER: Optional[str] = None
     FAILED_FOLDER: Optional[str] = None
+    PROCESSED_FOLDER: Optional[str] = None
 
     # --- Dropbox Settings (optional) ---
     DROPBOX_APP_KEY: Optional[str] = None
@@ -33,6 +34,7 @@ class Settings(BaseSettings):
     DROPBOX_SOURCE_DIR: Optional[str] = None
     DROPBOX_DEST_DIR: Optional[str] = None
     DROPBOX_FAILED_DIR: Optional[str] = None
+    DROPBOX_PROCESSED_DIR: Optional[str] = None
 
     # --- Google Drive Settings (optional) ---
     GDRIVE_CREDENTIALS_JSON: Optional[str] = None
@@ -40,6 +42,7 @@ class Settings(BaseSettings):
     GDRIVE_SOURCE_FOLDER_ID: Optional[str] = None
     GDRIVE_DEST_FOLDER_ID: Optional[str] = None
     GDRIVE_FAILED_FOLDER_ID: Optional[str] = None
+    GDRIVE_PROCESSED_FOLDER_ID: Optional[str] = None
 
     # --- AI Settings (must be set in .env) ---
     RECOGNITION_MODEL: str = Field(
@@ -63,6 +66,7 @@ class Settings(BaseSettings):
             self.SRC_FOLDER = self.DROPBOX_SOURCE_DIR
             self.DST_FOLDER = self.DROPBOX_DEST_DIR
             self.FAILED_FOLDER = self.DROPBOX_FAILED_DIR
+            self.PROCESSED_FOLDER = self.DROPBOX_PROCESSED_DIR
 
             # Perform validation
             if not self.DROPBOX_APP_KEY:
@@ -79,6 +83,8 @@ class Settings(BaseSettings):
                 not self.FAILED_FOLDER
             ):  # FAILED_FOLDER gets value from DROPBOX_FAILED_DIR
                 raise ValueError("For Dropbox, FAILED_FOLDER must be set.")
+            if not self.PROCESSED_FOLDER:
+                raise ValueError("For Dropbox, PROCESSED_FOLDER must be set.")
 
             if not (self.DROPBOX_REFRESH_TOKEN_ENV or self.TOKEN_STORAGE_FILE.exists()):
                 logging.warning("Dropbox refresh token not found in env or file.")
@@ -87,6 +93,7 @@ class Settings(BaseSettings):
             self.SRC_FOLDER = self.GDRIVE_SOURCE_FOLDER_ID
             self.DST_FOLDER = self.GDRIVE_DEST_FOLDER_ID
             self.FAILED_FOLDER = self.GDRIVE_FAILED_FOLDER_ID
+            self.PROCESSED_FOLDER = self.GDRIVE_PROCESSED_FOLDER_ID
             if not all(
                 [
                     self.GDRIVE_CREDENTIALS_JSON,
@@ -94,6 +101,7 @@ class Settings(BaseSettings):
                     self.SRC_FOLDER,
                     self.DST_FOLDER,
                     self.FAILED_FOLDER,
+                    self.PROCESSED_FOLDER,
                 ]
             ):
                 raise ValueError(
@@ -132,14 +140,14 @@ def get_settings() -> Settings:
     The first call to this function will initialize the settings.
     """
     settings = Settings()
-    logging.info("--- Loaded Application Settings ---")
+    logging.debug("--- Loaded Application Settings ---")
     for key, value in settings.model_dump().items():
         if any(s in key.lower() for s in ["key", "secret", "token"]):
-            logging.info(f"{key}: **********")
+            logging.debug(f"{key}: **********")
         else:
-            logging.info(f"{key}: {value}")
-    logging.info("------------------------------------")
+            logging.debug(f"{key}: {value}")
+    logging.debug("------------------------------------")
 
     # Create buffer directory if it doesn't exist.
-    (settings.BASE_DIR / "src" / "buf").mkdir(parents=True, exist_ok=True)
+    settings.LOCAL_BUF_DIR.mkdir(parents=True, exist_ok=True)
     return settings

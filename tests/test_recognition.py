@@ -1,6 +1,6 @@
 # tests/test_recognition.py
 from unittest.mock import patch, MagicMock
-from src.recognition import recognize
+from src.recognition import RecognitionClient
 
 # The mock_settings fixture is now in conftest.py
 
@@ -18,7 +18,8 @@ def test_recognize_success(MockOpenAI, mock_get_settings, mock_settings):
     mock_openai_client.chat.completions.create.return_value = mock_response
 
     # Action
-    recognized_text = recognize("fake_base64_string")
+    recognition_client = RecognitionClient()
+    recognized_text = recognition_client.recognize("fake_base64_string")
 
     # Asserts
     assert recognized_text == "Recognized text"

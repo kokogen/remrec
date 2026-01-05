@@ -1,6 +1,5 @@
 # processing.py
 import logging
-import os
 import openai
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
 from typing import List
@@ -11,7 +10,7 @@ from .config import get_settings
 from .storage.base import StorageClient
 from .storage.dto import FileMetadata
 from .exceptions import PermanentError, TransientError
-from .recognition import image_to_base64, recognize
+from .recognition import image_to_base64, RecognitionClient
 from .pdf_utils import create_reflowed_pdf
 
 
@@ -39,14 +38,16 @@ def _download_and_convert(
         raise PermanentError(f"PDF conversion failed: {e}") from e
 
 
-def _recognize_pages(pages: List[Image]) -> List[str]:
+def _recognize_pages(
+    recognition_client: RecognitionClient, pages: List[Image]
+) -> List[str]:
     """Recognizes text from a list of images."""
     recognized_texts = []
     for i, page in enumerate(pages):
         logging.info(f"Recognizing page {i + 1}/{len(pages)}...")
         try:
             img_b64 = image_to_base64(page)
-            text = recognize(img_b64)
+            text = recognition_client.recognize(img_b64)
             recognized_texts.append(text)
         except openai.APIConnectionError as e:
             raise TransientError("Recognition API connection error") from e
@@ -85,8 +86,15 @@ def _cleanup_local_files(paths: List[Path]):
     """Removes temporary local files."""
     logging.info("Cleaning up local files...")
     for path in paths:
-        if os.path.exists(path):
-            os.remove(path)
+        try:
+            if path.is_file():
+                path.unlink()
+        except FileNotFoundError:
+            logging.warning(
+                f"Could not remove temporary file {path} as it was not found."
+            )
+        except Exception as e:
+            logging.error(f"Error removing temporary file {path}: {e}")
 
 
 def process_single_file(storage_client: StorageClient, file_entry: FileMetadata):
@@ -97,25 +105,30 @@ def process_single_file(storage_client: StorageClient, file_entry: FileMetadata)
     settings = get_settings()
     local_pdf_path = settings.LOCAL_BUF_DIR / file_entry.name
     result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_entry.name}"
+    recognition_client = RecognitionClient()
 
     try:
         # 1. Download and Convert
         pages = _download_and_convert(storage_client, file_entry.id, local_pdf_path)
 
         # 2. Recognize Text
-        recognized_texts = _recognize_pages(pages)
+        recognized_texts = _recognize_pages(recognition_client, pages)
 
         # 3. Create and Upload PDF
         _create_and_upload_pdf(storage_client, recognized_texts, result_pdf_path)
 
-        # 4. Delete Original File
+        # 4. Move Original File to Processed Folder
         try:
-            storage_client.delete_file(file_entry.id)
-            logging.info(f"Successfully processed and deleted {file_entry.name}")
+            logging.info(f"Moving {file_entry.name} to processed folder...")
+            storage_client.move_file(file_entry.id, settings.PROCESSED_FOLDER)
+            logging.info(f"Successfully processed and moved {file_entry.name}")
         except Exception as e:
-            logging.warning(
-                f"Could not delete original file {file_entry.name} after processing. Error: {e}"
-            )
+            # If moving fails, we raise a transient error to retry the whole process.
+            # This is safer because we don't want to have a processed file in the
+            # destination and the original file still in the source folder.
+            raise TransientError(
+                f"Failed to move original file {file_entry.name} after processing. Error: {e}"
+            ) from e
 
     finally:
         # 5. Clean up local files

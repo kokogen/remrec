@@ -14,21 +14,54 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     reflowing the text to fit the page width and adding page breaks.
     """
     settings = get_settings()
-    if not settings.FONT_PATH.exists():
-        logging.error(
-            f"Font file not found at {settings.FONT_PATH}. Cannot create PDF."
-        )
-        raise FileNotFoundError(f"Font file not found: {settings.FONT_PATH}")
+    font_name = "DejaVuSans"
 
-    # Register the font
-    pdfmetrics.registerFont(TTFont("DejaVuSans", str(settings.FONT_PATH)))
-    pdfmetrics.registerFontFamily(
-        "DejaVuSans",
-        normal="DejaVuSans",
-        bold="DejaVuSans",  # Use the same font for bold if no bold variant exists
-        italic="DejaVuSans",  # Use the same font for italic if no italic variant exists
-        boldItalic="DejaVuSans",
-    )
+    # --- Font Registration ---
+    font_path = settings.FONT_PATH
+    bold_font_path = font_path.with_name("DejaVuSans-Bold.ttf")
+    italic_font_path = font_path.with_name("DejaVuSans-Oblique.ttf")
+    bold_italic_font_path = font_path.with_name("DejaVuSans-BoldOblique.ttf")
+
+    # Register the base font if it exists
+    if font_path.exists():
+        pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+
+        # Register bold and italic variants if they exist, otherwise fallback to normal
+        bold_font_name = font_name
+        if bold_font_path.exists():
+            bold_font_name = "DejaVuSans-Bold"
+            pdfmetrics.registerFont(TTFont(bold_font_name, str(bold_font_path)))
+        else:
+            logging.warning(f"Bold font not found at {bold_font_path}, using normal.")
+
+        italic_font_name = font_name
+        if italic_font_path.exists():
+            italic_font_name = "DejaVuSans-Oblique"
+            pdfmetrics.registerFont(TTFont(italic_font_name, str(italic_font_path)))
+        else:
+            logging.warning(
+                f"Italic font not found at {italic_font_path}, using normal."
+            )
+
+        bold_italic_font_name = font_name
+        if bold_italic_font_path.exists():
+            bold_italic_font_name = "DejaVuSans-BoldOblique"
+            pdfmetrics.registerFont(
+                TTFont(bold_italic_font_name, str(bold_italic_font_path))
+            )
+
+        pdfmetrics.registerFontFamily(
+            font_name,
+            normal=font_name,
+            bold=bold_font_name,
+            italic=italic_font_name,
+            boldItalic=bold_italic_font_name,
+        )
+    else:
+        logging.warning(
+            f"Font file not found at {font_path}. Using default ReportLab font."
+        )
+        font_name = "Helvetica"  # Fallback to a default font
 
     # Basic setup for the document
     doc = SimpleDocTemplate(str(pdf_path), pagesize=letter)
@@ -37,7 +70,7 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     custom_style = ParagraphStyle(
         name="CustomStyle",
         parent=styles["Normal"],
-        fontName="DejaVuSans",
+        fontName=font_name,
         fontSize=11,
         leading=14,
     )

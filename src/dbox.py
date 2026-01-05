@@ -53,7 +53,7 @@ class DropboxClient(StorageClient):
                             id=entry.path_display,
                             name=entry.name,
                             path=entry.path_display,
-                            folder_id=os.path.dirname(entry.path_display),
+                            folder_id=folder_id,
                         )
                     )
             return file_dtos

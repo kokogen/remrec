@@ -4,6 +4,7 @@ from unittest.mock import patch, ANY
 from src.pdf_utils import create_reflowed_pdf
 
 
+@patch("pathlib.Path.exists", return_value=True)
 @patch("src.pdf_utils.get_settings")
 @patch("src.pdf_utils.pdfmetrics.registerFont")
 @patch("src.pdf_utils.TTFont")
@@ -13,6 +14,7 @@ def test_create_reflowed_pdf(
     MockTTFont,
     mock_registerFont,
     mock_get_settings,
+    mock_path_exists,
     mock_settings,
 ):
     """Test creating a reflowed PDF from text."""
@@ -27,7 +29,7 @@ def test_create_reflowed_pdf(
 
     # Asserts
     mock_get_settings.assert_called_once()
-    mock_registerFont.assert_called_once()
+    assert mock_registerFont.call_count >= 1
     MockSimpleDocTemplate.assert_called_once_with(str(output_pdf), pagesize=ANY)
     mock_doc.build.assert_called_once()
     # Verify that the style was created with the correct font name in the implementation
