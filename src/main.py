@@ -141,6 +141,22 @@ def initialize_storage_client(
     return storage_client, source_path, dest_path, failed_path
 
 
+def _quarantine_file(
+    storage_client: StorageClient, file_id: str, file_name: str, failed_folder_id: str
+):
+    """Moves a file to the quarantine folder and logs the outcome."""
+    try:
+        storage_client.move_file(file_id, failed_folder_id)
+        logging.warning(
+            f"Moved failed file {file_name} to quarantine folder {failed_folder_id}."
+        )
+    except Exception as move_e:
+        logging.critical(
+            f"CRITICAL: Could not move failed file {file_name} to quarantine. Error: {move_e}",
+            exc_info=True,
+        )
+
+
 def main_workflow():
     logging.info("Starting workflow...")
     settings = get_settings()
@@ -159,7 +175,8 @@ def main_workflow():
     # Check necessary folders exist
     try:
         for path in [source_path, dest_path, failed_path]:
-            if path:
+            # An empty string is a valid path for Dropbox (root), so we check for None
+            if path is not None:
                 storage_client.verify_folder_exists(path)
     except Exception as e:  # Catch any error during folder verification
         logging.critical(
@@ -173,75 +190,42 @@ def main_workflow():
         return
 
     logging.info(f"Found {len(files_to_process)} files to process.")
-    is_dropbox = settings.STORAGE_PROVIDER == "dropbox"
     for entry in files_to_process:
-        file_name = entry.name if is_dropbox else entry["name"]
-
         # A simple check for PDF files based on name
-        if file_name.lower().endswith(".pdf"):
-            logging.info(f"--- Processing file: {file_name} ---")
+        if entry.name.lower().endswith(".pdf"):
+            logging.info(f"--- Processing file: {entry.name} ---")
             start_time = time.monotonic()
             try:
                 process_single_file(storage_client, entry)
                 duration = time.monotonic() - start_time
                 logging.info(
-                    f"Finished processing {file_name}. Took {duration:.2f} seconds."
+                    f"Finished processing {entry.name}. Took {duration:.2f} seconds."
                 )
 
             except PermanentError as e:
                 duration = time.monotonic() - start_time
                 logging.error(
-                    f"PERMANENT ERROR processing file {file_name} after {duration:.2f} seconds. Moving to quarantine. Error: {e}",
+                    f"PERMANENT ERROR processing file {entry.name} after {duration:.2f} seconds. Moving to quarantine. Error: {e}",
                     exc_info=True,
                 )
-                try:
-                    from_path = (
-                        f"{source_path}/{file_name}"
-                        if is_dropbox
-                        else f"{source_path}/{file_name}"
-                    )  # In GDrive source_path is an ID
-                    quarantine_path = f"{failed_path}/{file_name}"
-                    storage_client.move_file(from_path, quarantine_path)
-                    logging.warning(
-                        f"Moved failed file {file_name} to quarantine folder."
-                    )
-                except Exception as move_e:
-                    logging.critical(
-                        f"CRITICAL: Could not move failed file {file_name} to quarantine. Error: {move_e}",
-                        exc_info=True,
-                    )
+                _quarantine_file(storage_client, entry.id, entry.name, failed_path)
 
             except TransientError as e:
                 duration = time.monotonic() - start_time
                 logging.warning(
-                    f"TRANSIENT ERROR processing file {file_name} after {duration:.2f} seconds. Will retry on next run. Error: {e}",
+                    f"TRANSIENT ERROR processing file {entry.name} after {duration:.2f} seconds. Will retry on next run. Error: {e}",
                     exc_info=True,
                 )
 
             except Exception as e:
                 duration = time.monotonic() - start_time
                 logging.critical(
-                    f"UNHANDLED CRITICAL ERROR processing file {file_name} after {duration:.2f} seconds. Moving to quarantine as a precaution. Error: {e}",
+                    f"UNHANDLED CRITICAL ERROR processing file {entry.name} after {duration:.2f} seconds. Moving to quarantine as a precaution. Error: {e}",
                     exc_info=True,
                 )
-                try:
-                    from_path = (
-                        f"{source_path}/{file_name}"
-                        if is_dropbox
-                        else f"{source_path}/{file_name}"
-                    )  # In GDrive source_path is an ID
-                    quarantine_path = f"{failed_path}/{file_name}"
-                    storage_client.move_file(from_path, quarantine_path)
-                    logging.warning(
-                        f"Moved failed file {file_name} to quarantine folder as a precaution."
-                    )
-                except Exception as move_e:
-                    logging.error(
-                        f"CRITICAL: Could not move unhandled error file {file_name} to quarantine. Error: {move_e}",
-                        exc_info=True,
-                    )
+                _quarantine_file(storage_client, entry.id, entry.name, failed_path)
         else:
-            logging.warning(f"Skipping non-PDF or folder entry: {file_name}")
+            logging.warning(f"Skipping non-PDF or folder entry: {entry.name}")
 
 
 def main():

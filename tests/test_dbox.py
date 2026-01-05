@@ -126,11 +126,11 @@ def test_upload_file_success(mock_open, client):
     mock_local_path = MagicMock()
     mock_local_path.stat.return_value.st_size = 100  # Размер меньше чанка
 
-    client.upload_file(mock_local_path, "/dbx_path")
+    client.upload_file(mock_local_path, "/dbx_folder", "test.pdf")
 
     mock_open.assert_called_once_with(mock_local_path, "rb")
     client.dbx.files_upload.assert_called_once_with(
-        b"file_content", "/dbx_path", mode=ANY
+        b"file_content", "/dbx_folder/test.pdf", mode=ANY
     )
 
 

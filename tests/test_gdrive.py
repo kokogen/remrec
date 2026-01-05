@@ -90,41 +90,6 @@ def client(mock_credentials, mock_token):
         yield client_instance
 
 
-def test_ensure_folder_path_exists_simple(client):
-    """Test creating a simple, one-level folder that doesn't exist."""
-    # Setup
-    client.service.files().list().execute.return_value = {"files": []}
-    client.service.files().create().execute.return_value = {"id": "new_folder_id"}
-
-    # Action
-    folder_id = client.ensure_folder_path_exists("New Folder")
-
-    # Asserts
-    assert folder_id == "new_folder_id"
-    client.service.files().create().execute.assert_called_once()
-
-
-def test_ensure_folder_path_exists_nested(client):
-    """Test creating a nested folder path."""
-    # Setup to simulate that no folders exist
-    client.service.files().list().execute.side_effect = [
-        {"files": []},  # No "Parent" folder
-        {"files": []},  # No "Child" folder
-    ]
-    # Simulate creation calls
-    client.service.files().create().execute.side_effect = [
-        {"id": "parent_id"},
-        {"id": "child_id"},
-    ]
-
-    # Action
-    folder_id = client.ensure_folder_path_exists("Parent/Child")
-
-    # Asserts
-    assert folder_id == "child_id"
-    assert client.service.files().create().execute.call_count == 2
-
-
 def test_verify_folder_exists_success(client):
     """Test that folder verification succeeds if the folder exists."""
     client.service.files().get().execute.return_value = {
@@ -133,8 +98,9 @@ def test_verify_folder_exists_success(client):
         "mimeType": "application/vnd.google-apps.folder",
     }
 
-    folder_id = client.verify_folder_exists("test_id")
-    assert folder_id == "test_id"
+    # This method now returns None on success and raises an error on failure.
+    # The test passes if no exception is raised.
+    client.verify_folder_exists("test_id")
 
 
 def test_verify_folder_exists_permanent_error(client):
@@ -189,7 +155,7 @@ def test_upload_file_success(MockMediaFileUpload, client):
     """Test uploading a file successfully."""
     client._find_file_id_by_name = MagicMock(return_value=None)  # No existing file
 
-    client.upload_file("/local/path/test.pdf", "folder_id/test.pdf")
+    client.upload_file("/local/path/test.pdf", "folder_id", "test.pdf")
 
     MockMediaFileUpload.assert_called_once_with("/local/path/test.pdf", resumable=True)
     client.service.files().create.assert_called_once_with(
@@ -212,10 +178,12 @@ def test_delete_file_success(client):
 
 def test_move_file_success(client):
     """Test moving a file successfully."""
-    client._find_file_id_by_name = MagicMock(return_value="file_id_to_move")
-    client.service.files().get().execute.return_value = {"parents": ["old_parent_id"]}
+    client.service.files().get().execute.return_value = {
+        "parents": ["old_parent_id"],
+        "name": "test.pdf",
+    }
 
-    client.move_file("from_folder_id/test.pdf", "to_folder_id/test.pdf")
+    client.move_file("file_id_to_move", "to_folder_id")
 
     client.service.files().update.assert_called_once_with(
         fileId="file_id_to_move",

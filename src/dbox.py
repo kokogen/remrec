@@ -30,14 +30,14 @@ class DropboxClient(StorageClient):
             )
             raise
 
-    def list_files(self, folder_path: str):
+    def list_files(self, folder_id: str):
         """
         Returns a list of all files in the specified Dropbox directory,
         handling pagination automatically.
         """
         try:
-            logging.info(f"Listing files in Dropbox path: '{folder_path}'")
-            result = self.dbx.files_list_folder(folder_path)  # Non-recursive
+            logging.info(f"Listing files in Dropbox path: '{folder_id}'")
+            result = self.dbx.files_list_folder(folder_id)  # Non-recursive
             all_entries = result.entries
             while result.has_more:
                 logging.info("Found more files, continuing listing...")
@@ -58,22 +58,25 @@ class DropboxClient(StorageClient):
                     )
             return file_dtos
         except ApiError as e:
-            logging.error(f"Failed to list files in Dropbox path '{folder_path}': {e}")
+            logging.error(f"Failed to list files in Dropbox path '{folder_id}': {e}")
             return []
 
-    def download_file(self, file_path: str, local_path: str):
+    def download_file(self, file_id: str, local_path: str):
         """Downloads a file from Dropbox to the local filesystem."""
         try:
-            logging.info(f"Downloading {file_path} to {local_path}...")
-            self.dbx.files_download_to_file(str(local_path), file_path)
+            logging.info(f"Downloading {file_id} to {local_path}...")
+            self.dbx.files_download_to_file(str(local_path), file_id)
         except ApiError as e:
-            logging.error(f"Failed to download file '{file_path}': {e}")
+            logging.error(f"Failed to download file '{file_id}': {e}")
             raise
 
-    def upload_file(self, local_path: str, remote_path: str):
+    def upload_file(self, local_path: str, folder_id: str, filename: str):
         """Uploads a local file to Dropbox using chunked uploading for efficiency."""
         settings = get_settings()
         chunk_size = settings.DROPBOX_UPLOAD_CHUNK_SIZE
+        remote_path = f"{folder_id}/{filename}".replace(
+            "//", "/"
+        )  # Handle root folder case
 
         file_size = local_path.stat().st_size
         if file_size < chunk_size:
@@ -129,38 +132,45 @@ class DropboxClient(StorageClient):
                     )
                     raise
 
-    def move_file(self, from_path: str, to_path: str):
+    def move_file(self, file_id: str, to_folder_id: str):
         """Moves a file within Dropbox."""
         try:
-            logging.info(f"Moving {from_path} to {to_path}...")
-            self.dbx.files_move_v2(from_path, to_path)
+            filename = os.path.basename(file_id)
+            to_path = f"{to_folder_id}/{filename}".replace("//", "/")
+            logging.info(f"Moving {file_id} to {to_path}...")
+            self.dbx.files_move_v2(file_id, to_path)
         except ApiError as e:
-            logging.error(f"Failed to move file from '{from_path}' to '{to_path}': {e}")
+            logging.error(f"Failed to move file from '{file_id}' to '{to_path}': {e}")
             raise
 
-    def delete_file(self, file_path: str):
+    def delete_file(self, file_id: str):
         """Deletes a file or folder in Dropbox."""
         try:
-            logging.info(f"Deleting {file_path}...")
-            self.dbx.files_delete_v2(file_path)
+            logging.info(f"Deleting {file_id}...")
+            self.dbx.files_delete_v2(file_id)
         except ApiError as e:
-            logging.error(f"Failed to delete path '{file_path}': {e}")
+            logging.error(f"Failed to delete path '{file_id}': {e}")
             raise
 
-    def verify_folder_exists(self, folder_path: str):
+    def verify_folder_exists(self, folder_id: str):
         """
         Verifies if a folder exists.
         Raises an ApiError if the folder does not exist or is inaccessible.
         """
         try:
-            self.dbx.files_get_metadata(folder_path)
-            logging.info(f"Dropbox folder '{folder_path}' exists.")
+            # For Dropbox, an empty string signifies the root folder, which always exists.
+            if folder_id == "":
+                logging.info("Dropbox root folder '' specified, which always exists.")
+                return
+
+            self.dbx.files_get_metadata(folder_id)
+            logging.info(f"Dropbox folder '{folder_id}' exists.")
         except ApiError as e:
             if e.error.is_path() and e.error.get_path().is_not_found():
                 logging.critical(
-                    f"Configured Dropbox folder '{folder_path}' does not exist."
+                    f"Configured Dropbox folder '{folder_id}' does not exist."
                 )
                 raise  # Re-raise the error to be handled upstream (e.g., in main.py)
             else:
-                logging.error(f"Error accessing Dropbox folder '{folder_path}': {e}")
+                logging.error(f"Error accessing Dropbox folder '{folder_id}': {e}")
                 raise  # Re-raise for other API errors (e.g., permissions)
