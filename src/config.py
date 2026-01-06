@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 from typing import Any, Optional
 import logging
 from functools import lru_cache
+import os
 
 
 class Settings(BaseSettings):
@@ -26,9 +27,7 @@ class Settings(BaseSettings):
     # --- Dropbox Settings (optional) ---
     DROPBOX_APP_KEY: Optional[str] = None
     DROPBOX_APP_SECRET: Optional[str] = None
-    DROPBOX_REFRESH_TOKEN_ENV: Optional[str] = Field(
-        None, alias="DROPBOX_REFRESH_TOKEN"
-    )
+    DROPBOX_REFRESH_TOKEN: Optional[str] = None
     DROPBOX_REFRESH_TOKEN_FILE: Optional[str] = None
     DROPBOX_SOURCE_DIR: Optional[str] = None
     DROPBOX_DEST_DIR: Optional[str] = None
@@ -80,9 +79,6 @@ class Settings(BaseSettings):
             ):  # FAILED_FOLDER gets value from DROPBOX_FAILED_DIR
                 raise ValueError("For Dropbox, FAILED_FOLDER must be set.")
 
-            if not (self.DROPBOX_REFRESH_TOKEN_ENV or self.TOKEN_STORAGE_FILE.exists()):
-                logging.warning("Dropbox refresh token not found in env or file.")
-
         elif self.STORAGE_PROVIDER == "gdrive":
             self.SRC_FOLDER = self.GDRIVE_SOURCE_FOLDER_ID
             self.DST_FOLDER = self.GDRIVE_DEST_FOLDER_ID
@@ -104,17 +100,28 @@ class Settings(BaseSettings):
 
     def model_post_init(self, __context: Any) -> None:
         """Load Dropbox token from file if it exists and run validations."""
-        if self.TOKEN_STORAGE_FILE.is_file():
-            self.DROPBOX_REFRESH_TOKEN_FILE = (
-                self.TOKEN_STORAGE_FILE.read_text().strip()
-            )
-            logging.info(f"Loaded Dropbox refresh token from {self.TOKEN_STORAGE_FILE}")
-
+        # Ensure base directories are set first
         self._set_provider_folders()
 
-    @property
-    def LOCAL_BUF_DIR(self) -> Path:
-        return self.BASE_DIR / "buf"
+        # Centralize Dropbox token resolution and validation
+        if self.STORAGE_PROVIDER == "dropbox":
+            env_token = os.getenv("DROPBOX_REFRESH_TOKEN")
+            if env_token:
+                self.DROPBOX_REFRESH_TOKEN = env_token
+                logging.debug("Using Dropbox token from environment variable.")
+            elif self.TOKEN_STORAGE_FILE.is_file():
+                self.DROPBOX_REFRESH_TOKEN_FILE = (
+                    self.TOKEN_STORAGE_FILE.read_text().strip()
+                )
+                self.DROPBOX_REFRESH_TOKEN = self.DROPBOX_REFRESH_TOKEN_FILE
+                logging.info(
+                    f"Loaded Dropbox refresh token from {self.TOKEN_STORAGE_FILE}"
+                )
+            else:
+                raise ValueError(
+                    "Dropbox refresh token not found in DROPBOX_REFRESH_TOKEN env var or in .dropbox.token file. "
+                    "Please run `python src/auth.py` to generate one."
+                )
 
     @property
     def FONT_PATH(self) -> Path:
