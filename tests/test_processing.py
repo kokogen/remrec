@@ -37,8 +37,7 @@ def test_process_single_file_success(
     mock_settings.LOCAL_BUF_DIR = Path("/tmp/buf")
     mock_settings.DST_FOLDER = "/processed"
 
-    # Action
-    process_single_file(mock_storage_client, file_entry)
+    process_single_file(mock_storage_client, file_entry, mock_settings.DST_FOLDER)
 
     # Asserts
     mock_storage_client.download_file.assert_called_once()
@@ -69,7 +68,7 @@ def test_process_single_file_permanent_error(
 
     # Action and Asserts
     with pytest.raises(PermanentError):
-        process_single_file(mock_storage_client, file_entry)
+        process_single_file(mock_storage_client, file_entry, "dummy_dest_path")
 
     mock_storage_client.download_file.assert_called_once()
     mock_storage_client.upload_file.assert_not_called()
