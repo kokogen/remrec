@@ -45,22 +45,6 @@ class GoogleDriveClient(StorageClient):
             logging.error(f"Failed to initialize Google Drive client. Error: {e}")
             raise
 
-    def _get_folder_id_by_name(self, name: str, parent_id: str = "root") -> str | None:
-        """
-        Retrieves the ID of a folder by its name within a parent folder.
-        """
-        query = (
-            f"name='{name}' and mimeType='application/vnd.google-apps.folder' and "
-            f"'{parent_id}' in parents and trashed=false"
-        )
-        try:
-            response = self.service.files().list(q=query, fields="files(id)").execute()
-            files = response.get("files", [])
-            return files[0]["id"] if files else None
-        except HttpError as e:
-            logging.error(f"Failed to search for folder '{name}': {e}")
-            return None
-
     def _find_file_id_by_name(self, filename: str, folder_id: str) -> str | None:
         """
         Finds a file's ID by its name in a specific folder.

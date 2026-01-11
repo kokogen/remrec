@@ -67,14 +67,14 @@ def _create_and_upload_pdf(
     storage_client: StorageClient,
     recognized_texts: List[str],
     result_pdf_path: Path,
+    destination_path: str,
 ):
     """Creates a result PDF and uploads it to storage."""
-    settings = get_settings()
     create_reflowed_pdf(recognized_texts, result_pdf_path)
     try:
         storage_client.upload_file(
             local_path=result_pdf_path,
-            folder_id=settings.DST_FOLDER,
+            folder_id=destination_path,
             filename=result_pdf_path.name,
         )
     except Exception as e:
@@ -89,7 +89,9 @@ def _cleanup_local_files(paths: List[Path]):
             os.remove(path)
 
 
-def process_single_file(storage_client: StorageClient, file_entry: FileMetadata):
+def process_single_file(
+    storage_client: StorageClient, file_entry: FileMetadata, destination_path: str
+):
     """
     Full processing cycle for a single file with detailed error handling.
     This function orchestrates the download, conversion, recognition, and upload.
@@ -106,7 +108,9 @@ def process_single_file(storage_client: StorageClient, file_entry: FileMetadata)
         recognized_texts = _recognize_pages(pages)
 
         # 3. Create and Upload PDF
-        _create_and_upload_pdf(storage_client, recognized_texts, result_pdf_path)
+        _create_and_upload_pdf(
+            storage_client, recognized_texts, result_pdf_path, destination_path
+        )
 
         # 4. Delete Original File
         try:

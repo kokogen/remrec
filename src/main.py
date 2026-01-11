@@ -168,7 +168,7 @@ def main_workflow():
             logging.info(f"--- Processing file: {entry.name} ---")
             start_time = time.monotonic()
             try:
-                process_single_file(storage_client, entry)
+                process_single_file(storage_client, entry, dest_path)
                 duration = time.monotonic() - start_time
                 logging.info(
                     f"Finished processing {entry.name}. Took {duration:.2f} seconds."
