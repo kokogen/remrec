@@ -148,4 +148,6 @@ def get_settings() -> Settings:
             logging.info(f"{key}: {value}")
     logging.info("------------------------------------")
 
+    # Create buffer directory if it doesn't exist.
+    settings.LOCAL_BUF_DIR.mkdir(parents=True, exist_ok=True)
     return settings
