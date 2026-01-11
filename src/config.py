@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     # --- Constants and Computed Paths ---
     BASE_DIR: Path = Path(__file__).resolve().parent.parent  # Project root
     TOKEN_STORAGE_FILE: Path = BASE_DIR / ".dropbox.token"
+    LOCAL_BUF_DIR: Path = BASE_DIR / "src" / "buf"
 
     def _set_provider_folders(self) -> None:
         if self.STORAGE_PROVIDER == "dropbox":
@@ -147,6 +148,4 @@ def get_settings() -> Settings:
             logging.info(f"{key}: {value}")
     logging.info("------------------------------------")
 
-    # Create buffer directory if it doesn't exist.
-    (settings.BASE_DIR / "src" / "buf").mkdir(parents=True, exist_ok=True)
     return settings
