@@ -116,9 +116,15 @@ def test_download_file_api_error(client):
 # Для краткости добавим один пример для upload.
 
 
+@patch("src.dbox.get_settings")
 @patch("builtins.open")
-def test_upload_file_success(mock_open, client):
+def test_upload_file_success(mock_open, mock_get_settings, client):
     """Тест успешной выгрузки файла."""
+    # Настраиваем мок для get_settings
+    mock_settings = MagicMock()
+    mock_settings.DROPBOX_UPLOAD_CHUNK_SIZE = 128 * 1024 * 1024
+    mock_get_settings.return_value = mock_settings
+
     mock_file_handle = mock_open.return_value.__enter__.return_value
     mock_file_handle.read.return_value = b"file_content"
 
