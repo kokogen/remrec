@@ -5,6 +5,7 @@ from typing import Any, Optional
 import logging
 from functools import lru_cache
 import os
+import tempfile
 
 
 class Settings(BaseSettings):
@@ -28,7 +29,6 @@ class Settings(BaseSettings):
     DROPBOX_APP_KEY: Optional[str] = None
     DROPBOX_APP_SECRET: Optional[str] = None
     DROPBOX_REFRESH_TOKEN: Optional[str] = None
-    DROPBOX_REFRESH_TOKEN_FILE: Optional[str] = None
     DROPBOX_SOURCE_DIR: Optional[str] = None
     DROPBOX_DEST_DIR: Optional[str] = None
     DROPBOX_FAILED_DIR: Optional[str] = None
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # --- Constants and Computed Paths ---
     BASE_DIR: Path = Path(__file__).resolve().parent.parent  # Project root
     TOKEN_STORAGE_FILE: Path = BASE_DIR / ".dropbox.token"
-    LOCAL_BUF_DIR: Path = BASE_DIR / "src" / "buf"
+    LOCAL_BUF_DIR: Path = Path(tempfile.gettempdir()) / "remrec"
 
     def _set_provider_folders(self) -> None:
         if self.STORAGE_PROVIDER == "dropbox":
@@ -111,10 +111,7 @@ class Settings(BaseSettings):
                 self.DROPBOX_REFRESH_TOKEN = env_token
                 logging.debug("Using Dropbox token from environment variable.")
             elif self.TOKEN_STORAGE_FILE.is_file():
-                self.DROPBOX_REFRESH_TOKEN_FILE = (
-                    self.TOKEN_STORAGE_FILE.read_text().strip()
-                )
-                self.DROPBOX_REFRESH_TOKEN = self.DROPBOX_REFRESH_TOKEN_FILE
+                self.DROPBOX_REFRESH_TOKEN = self.TOKEN_STORAGE_FILE.read_text().strip()
                 logging.info(
                     f"Loaded Dropbox refresh token from {self.TOKEN_STORAGE_FILE}"
                 )
@@ -128,10 +125,6 @@ class Settings(BaseSettings):
     def FONT_PATH(self) -> Path:
         return self.BASE_DIR / "DejaVuSans.ttf"
 
-    @property
-    def LOG_FILE(self) -> Path:
-        return self.BASE_DIR / "app.log"
-
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -140,12 +133,11 @@ def get_settings() -> Settings:
     The first call to this function will initialize the settings.
     """
     settings = Settings()
-    logging.info("--- Loaded Application Settings ---")
-    for key, value in settings.model_dump().items():
-        if any(s in key.lower() for s in ["key", "secret", "token"]):
-            logging.info(f"{key}: **********")
-        else:
-            logging.info(f"{key}: {value}")
+    logging.info("--- Application Settings Summary ---")
+    logging.info(f"STORAGE_PROVIDER: {settings.STORAGE_PROVIDER}")
+    logging.info(f"RECOGNITION_MODEL: {settings.RECOGNITION_MODEL}")
+    logging.info(f"LOOP_SLEEP_SECONDS: {settings.LOOP_SLEEP_SECONDS}")
+    logging.info(f"LOG_LEVEL: {settings.LOG_LEVEL}")
     logging.info("------------------------------------")
 
     # Create buffer directory if it doesn't exist.

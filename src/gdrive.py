@@ -117,30 +117,42 @@ class GoogleDriveClient(StorageClient):
     def upload_file(self, local_path: str, folder_id: str, filename: str):
         """
         Uploads a local file to a specified folder in Google Drive.
+        If a file with the same name exists, it updates the file content.
+        Otherwise, it creates a new file.
         """
-        # We assume folder_id is a valid ID and exists, as it's verified in main_workflow.
-
-        # Check if a file with the same name already exists to avoid duplicates
-        existing_file_id = self._find_file_id_by_name(filename, folder_id)
-        if existing_file_id:
-            logging.info(
-                f"File '{filename}' already exists in folder {folder_id}. Deleting before upload."
-            )
-            self.delete_file(existing_file_id)
-
         try:
-            file_metadata = {"name": filename, "parents": [folder_id]}
+            # We assume folder_id is a valid ID and exists, as verified in main_workflow.
+            existing_file_id = self._find_file_id_by_name(filename, folder_id)
             media = MediaFileUpload(str(local_path), resumable=True)
 
-            logging.info(
-                f"Uploading {local_path} to folder ID {folder_id} with name {filename}..."
-            )
-            self.service.files().create(
-                body=file_metadata, media_body=media, fields="id"
-            ).execute()
-            logging.info(f"Successfully uploaded {filename} to folder ID: {folder_id}.")
+            if existing_file_id:
+                # File exists, so update it
+                logging.info(
+                    f"File '{filename}' already exists with ID {existing_file_id}. Updating content..."
+                )
+                self.service.files().update(
+                    fileId=existing_file_id, media_body=media
+                ).execute()
+                logging.info(
+                    f"Successfully updated {filename} in folder ID: {folder_id}."
+                )
+            else:
+                # File does not exist, so create it
+                file_metadata = {"name": filename, "parents": [folder_id]}
+                logging.info(
+                    f"Uploading new file {local_path} to folder ID {folder_id} with name {filename}..."
+                )
+                self.service.files().create(
+                    body=file_metadata, media_body=media, fields="id"
+                ).execute()
+                logging.info(
+                    f"Successfully uploaded {filename} to folder ID: {folder_id}."
+                )
+
         except HttpError as e:
-            logging.error(f"Failed to upload file to folder ID '{folder_id}': {e}")
+            logging.error(
+                f"Failed to upload/update file to folder ID '{folder_id}': {e}"
+            )
             raise
 
     def delete_file(self, file_id: str):

@@ -1,5 +1,6 @@
 # main.py
 import logging
+import logging.handlers
 import time
 from typing import Optional, Tuple
 import dropbox
@@ -13,7 +14,10 @@ from .processing import process_single_file
 
 
 def setup_logging():
-    """Configures logging to file and console explicitly."""
+    """
+    Configures logging to file and console explicitly.
+    Sets up timed rotating log files.
+    """
     settings = get_settings()
     log_level_name = settings.LOG_LEVEL.upper()
 
@@ -21,7 +25,7 @@ def setup_logging():
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level_name)
 
-    # Clear any existing handlers to prevent duplicate logs on re-runs or implicit configs
+    # Clear any existing handlers to prevent duplicate logs
     if root_logger.handlers:
         for handler in root_logger.handlers:
             root_logger.removeHandler(handler)
@@ -35,14 +39,20 @@ def setup_logging():
     stream_handler.setFormatter(formatter)
     root_logger.addHandler(stream_handler)
 
-    # Add FileHandler
+    # Add TimedRotatingFileHandler
+    log_dir = settings.BASE_DIR / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_file_path = log_dir / "remrec.log"
+
     try:
-        file_handler = logging.FileHandler(settings.LOG_FILE)
+        # Rotate logs at midnight, keep 30 days of backups
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            log_file_path, when="midnight", interval=1, backupCount=30
+        )
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
     except IOError as e:
-        # Log to console if file logging fails (e.g., permissions)
-        root_logger.error(f"Failed to set up file logging to {settings.LOG_FILE}: {e}")
+        root_logger.error(f"Failed to set up file logging to {log_file_path}: {e}")
 
     # Reducing "noise" from third-party libraries
     logging.getLogger("dropbox").setLevel(logging.WARNING)
@@ -224,22 +234,40 @@ def main():
             )
         logging.info("Single run finished.")
     else:
+        settings = get_settings()
         logging.info(
-            f"Starting application in infinite loop mode. Sleep interval: {get_settings().LOOP_SLEEP_SECONDS} seconds."
+            f"Starting application in infinite loop mode. Sleep interval: {settings.LOOP_SLEEP_SECONDS} seconds."
         )
+        failure_count = 0
+        max_backoff_time = 600  # 10 minutes
+
         while True:
             try:
                 main_workflow()
+                # Reset failure count on success
+                if failure_count > 0:
+                    logging.info("Workflow successful, resetting failure backoff.")
+                    failure_count = 0
+
+                # Normal sleep after successful run
+                logging.info(
+                    f"Workflow run finished. Sleeping for {settings.LOOP_SLEEP_SECONDS} seconds."
+                )
+                time.sleep(settings.LOOP_SLEEP_SECONDS)
+
             except Exception as e:
                 # This provides a top-level catch to prevent the entire loop from crashing.
-                logging.critical(
-                    f"An unexpected error occurred in the main loop: {e}", exc_info=True
+                failure_count += 1
+                backoff_time = min(
+                    max_backoff_time,
+                    settings.LOOP_SLEEP_SECONDS * (2**failure_count),
                 )
-
-            logging.info(
-                f"Workflow run finished. Sleeping for {get_settings().LOOP_SLEEP_SECONDS} seconds."
-            )
-            time.sleep(get_settings().LOOP_SLEEP_SECONDS)
+                logging.critical(
+                    f"An unexpected error occurred in the main loop (failure #{failure_count}). "
+                    f"Backing off for {backoff_time} seconds. Error: {e}",
+                    exc_info=True,
+                )
+                time.sleep(backoff_time)
 
 
 if __name__ == "__main__":
