@@ -91,15 +91,23 @@ class GoogleDriveClient(StorageClient):
         self.verify_folder_exists(folder_id)
         try:
             logging.info(f"Listing files in Google Drive folder ID: '{folder_id}'")
-            response = (
-                self.service.files()
-                .list(
-                    q=f"'{folder_id}' in parents and trashed=false",
-                    fields="files(id, name)",
+            files = []
+            page_token = None
+            while True:
+                response = (
+                    self.service.files()
+                    .list(
+                        q=f"'{folder_id}' in parents and trashed=false",
+                        fields="nextPageToken, files(id, name, mimeType)",
+                        pageToken=page_token,
+                    )
+                    .execute()
                 )
-                .execute()
-            )
-            files = response.get("files", [])
+                files.extend(response.get("files", []))
+                page_token = response.get("nextPageToken")
+                if not page_token:
+                    break
+
             # Convert the raw API response to a list of FileMetadata DTOs
             return [
                 FileMetadata(
@@ -109,6 +117,7 @@ class GoogleDriveClient(StorageClient):
                     folder_id=folder_id,
                 )
                 for item in files
+                if item.get("mimeType") != "application/vnd.google-apps.folder"
             ]
         except HttpError as e:
             logging.error(
