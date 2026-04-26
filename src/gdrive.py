@@ -173,6 +173,12 @@ class GoogleDriveClient(StorageClient):
             )
             _raise_storage_error("upload file", e)
 
+    def file_exists(self, folder_id: str, filename: str) -> bool:
+        """
+        Checks whether a file with the same name exists in a Google Drive folder.
+        """
+        return self._find_file_id_by_name(filename, folder_id) is not None
+
     def delete_file(self, file_id: str):
         """
         Deletes a file from Google Drive by its file ID.

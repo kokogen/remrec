@@ -75,6 +75,17 @@ def _file_lock_path(buffer_dir: Path, file_id: str) -> Path:
     return buffer_dir / "locks" / f"{lock_digest}.lock"
 
 
+def _delete_original_file(storage_client: StorageClient, file_entry: FileMetadata):
+    """Deletes the original file after the result is known to exist."""
+    try:
+        storage_client.delete_file(file_entry.id)
+        logging.info(f"Successfully processed and deleted {file_entry.name}")
+    except Exception as e:
+        logging.warning(
+            f"Could not delete original file {file_entry.name} after processing. Error: {e}"
+        )
+
+
 def process_single_file(
     storage_client: StorageClient, file_entry: FileMetadata, destination_path: str
 ):
@@ -89,12 +100,21 @@ def process_single_file(
 
     try:
         with FileLock(str(lock_path), timeout=0):
+            result_filename = f"recognized_{file_entry.name}"
+            if storage_client.file_exists(destination_path, result_filename):
+                logging.info(
+                    f"Recognized result {result_filename} already exists. "
+                    f"Skipping OCR for {file_entry.name}."
+                )
+                _delete_original_file(storage_client, file_entry)
+                return
+
             with tempfile.TemporaryDirectory(
                 prefix="remrec-", dir=settings.LOCAL_BUF_DIR
             ) as temp_dir_name:
                 temp_dir = Path(temp_dir_name)
                 local_pdf_path = temp_dir / file_entry.name
-                result_pdf_path = temp_dir / f"recognized_{file_entry.name}"
+                result_pdf_path = temp_dir / result_filename
 
                 # 1. Download and Convert
                 pages = _download_and_convert(
@@ -110,15 +130,7 @@ def process_single_file(
                 )
 
                 # 4. Delete Original File
-                try:
-                    storage_client.delete_file(file_entry.id)
-                    logging.info(
-                        f"Successfully processed and deleted {file_entry.name}"
-                    )
-                except Exception as e:
-                    logging.warning(
-                        f"Could not delete original file {file_entry.name} after processing. Error: {e}"
-                    )
+                _delete_original_file(storage_client, file_entry)
     except Timeout:
         logging.warning(
             f"Skipping {file_entry.name}: another worker is already processing it."

@@ -45,6 +45,17 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
+    def file_exists(self, folder_id: str, filename: str) -> bool:
+        """
+        Checks whether a file with the given name exists in a folder.
+
+        :param folder_id: The ID or path of the folder to inspect.
+        :param filename: The file name to look for.
+        :return: True if the file exists, otherwise False.
+        """
+        pass
+
+    @abstractmethod
     def delete_file(self, file_id: str):
         """
         Deletes a file from the storage.

@@ -160,6 +160,18 @@ class DropboxClient(StorageClient):
                     )
                     _raise_storage_error("upload file", e)
 
+    def file_exists(self, folder_id: str, filename: str) -> bool:
+        """Checks whether a file exists in a Dropbox folder."""
+        remote_path = f"{folder_id}/{filename}".replace("//", "/")
+        try:
+            metadata = self.dbx.files_get_metadata(remote_path)
+            return isinstance(metadata, DropboxFileMetadata)
+        except (ApiError, AuthError) as e:
+            if isinstance(e, ApiError) and _is_dropbox_not_found(e):
+                return False
+            logging.error(f"Failed to check Dropbox path '{remote_path}': {e}")
+            _raise_storage_error("check file exists", e)
+
     def move_file(self, file_id: str, to_folder_id: str):
         """Moves a file within Dropbox."""
         try:

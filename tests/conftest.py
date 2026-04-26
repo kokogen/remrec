@@ -52,7 +52,9 @@ def mock_settings():
 @pytest.fixture
 def mock_storage_client():
     """Fixture for a mock storage client."""
-    return MagicMock()
+    storage_client = MagicMock()
+    storage_client.file_exists.return_value = False
+    return storage_client
 
 
 @pytest.fixture(autouse=True)
