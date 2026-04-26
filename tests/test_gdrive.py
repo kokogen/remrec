@@ -124,13 +124,70 @@ def test_list_files_success(client):
         "mimeType": "application/vnd.google-apps.folder",
     }
     client.service.files().list().execute.return_value = {
-        "files": [{"id": "file_id", "name": "test.pdf"}]
+        "files": [
+            {
+                "id": "file_id",
+                "name": "test.pdf",
+                "mimeType": "application/pdf",
+            }
+        ]
     }
 
     files = client.list_files("folder_id")
 
     assert len(files) == 1
     assert files[0].name == "test.pdf"
+
+
+def test_list_files_with_pagination_and_folder_filtering(client):
+    """Test listing paginated Google Drive files while excluding folders."""
+    client.service.files().get().execute.return_value = {
+        "id": "folder_id",
+        "name": "Test Folder",
+        "mimeType": "application/vnd.google-apps.folder",
+    }
+    client.service.files().list().execute.side_effect = [
+        {
+            "files": [
+                {
+                    "id": "file_id_1",
+                    "name": "first.pdf",
+                    "mimeType": "application/pdf",
+                },
+                {
+                    "id": "folder_child_id",
+                    "name": "folder.pdf",
+                    "mimeType": "application/vnd.google-apps.folder",
+                },
+            ],
+            "nextPageToken": "next-page",
+        },
+        {
+            "files": [
+                {
+                    "id": "file_id_2",
+                    "name": "second.pdf",
+                    "mimeType": "application/pdf",
+                }
+            ]
+        },
+    ]
+    client.service.files().list.reset_mock()
+
+    files = client.list_files("folder_id")
+
+    assert [item.name for item in files] == ["first.pdf", "second.pdf"]
+    assert client.service.files().list.call_count == 2
+    client.service.files().list.assert_any_call(
+        q="'folder_id' in parents and trashed=false",
+        fields="nextPageToken, files(id, name, mimeType)",
+        pageToken=None,
+    )
+    client.service.files().list.assert_any_call(
+        q="'folder_id' in parents and trashed=false",
+        fields="nextPageToken, files(id, name, mimeType)",
+        pageToken="next-page",
+    )
 
 
 @patch("src.gdrive.MediaIoBaseDownload")
