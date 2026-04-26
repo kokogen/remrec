@@ -1,10 +1,12 @@
 # processing.py
+import hashlib
 import logging
-import os
+import tempfile
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
 from typing import List
 from pathlib import Path
 from PIL.Image import Image
+from filelock import FileLock, Timeout
 
 from .config import get_settings
 from .storage.base import StorageClient
@@ -67,12 +69,10 @@ def _create_and_upload_pdf(
         raise
 
 
-def _cleanup_local_files(paths: List[Path]):
-    """Removes temporary local files."""
-    logging.info("Cleaning up local files...")
-    for path in paths:
-        if os.path.exists(path):
-            os.remove(path)
+def _file_lock_path(buffer_dir: Path, file_id: str) -> Path:
+    """Returns a stable lock path for a provider file ID."""
+    lock_digest = hashlib.sha256(file_id.encode("utf-8")).hexdigest()
+    return buffer_dir / "locks" / f"{lock_digest}.lock"
 
 
 def process_single_file(
@@ -83,30 +83,43 @@ def process_single_file(
     This function orchestrates the download, conversion, recognition, and upload.
     """
     settings = get_settings()
-    local_pdf_path = settings.LOCAL_BUF_DIR / file_entry.name
-    result_pdf_path = settings.LOCAL_BUF_DIR / f"recognized_{file_entry.name}"
+    settings.LOCAL_BUF_DIR.mkdir(parents=True, exist_ok=True)
+    lock_path = _file_lock_path(settings.LOCAL_BUF_DIR, file_entry.id)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        # 1. Download and Convert
-        pages = _download_and_convert(storage_client, file_entry.id, local_pdf_path)
+        with FileLock(str(lock_path), timeout=0):
+            with tempfile.TemporaryDirectory(
+                prefix="remrec-", dir=settings.LOCAL_BUF_DIR
+            ) as temp_dir_name:
+                temp_dir = Path(temp_dir_name)
+                local_pdf_path = temp_dir / file_entry.name
+                result_pdf_path = temp_dir / f"recognized_{file_entry.name}"
 
-        # 2. Recognize Text
-        recognized_texts = _recognize_pages(pages)
+                # 1. Download and Convert
+                pages = _download_and_convert(
+                    storage_client, file_entry.id, local_pdf_path
+                )
 
-        # 3. Create and Upload PDF
-        _create_and_upload_pdf(
-            storage_client, recognized_texts, result_pdf_path, destination_path
+                # 2. Recognize Text
+                recognized_texts = _recognize_pages(pages)
+
+                # 3. Create and Upload PDF
+                _create_and_upload_pdf(
+                    storage_client, recognized_texts, result_pdf_path, destination_path
+                )
+
+                # 4. Delete Original File
+                try:
+                    storage_client.delete_file(file_entry.id)
+                    logging.info(
+                        f"Successfully processed and deleted {file_entry.name}"
+                    )
+                except Exception as e:
+                    logging.warning(
+                        f"Could not delete original file {file_entry.name} after processing. Error: {e}"
+                    )
+    except Timeout:
+        logging.warning(
+            f"Skipping {file_entry.name}: another worker is already processing it."
         )
-
-        # 4. Delete Original File
-        try:
-            storage_client.delete_file(file_entry.id)
-            logging.info(f"Successfully processed and deleted {file_entry.name}")
-        except Exception as e:
-            logging.warning(
-                f"Could not delete original file {file_entry.name} after processing. Error: {e}"
-            )
-
-    finally:
-        # 5. Clean up local files
-        _cleanup_local_files([local_pdf_path, result_pdf_path])
