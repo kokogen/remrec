@@ -3,13 +3,12 @@ import logging
 import logging.handlers
 import time
 from typing import Optional, Tuple
-import dropbox
 
 from .config import get_settings
 from .dbox import DropboxClient
 from .gdrive import GoogleDriveClient
 from .storage.base import StorageClient
-from .exceptions import PermanentError, TransientError
+from .exceptions import PermanentError, StorageAuthError, StorageError, TransientError
 from .processing import process_single_file
 
 
@@ -98,14 +97,14 @@ def initialize_storage_client(
                 refresh_token=settings.DROPBOX_REFRESH_TOKEN,
             )
             logging.info("Dropbox client initialized successfully.")
-        except dropbox.exceptions.AuthError as e:
+        except StorageAuthError as e:
             logging.error(
                 f"Dropbox authentication failed. Please check your token and app credentials. Error: {e}"
             )
             storage_client = None
-        except Exception as e:
+        except StorageError as e:
             logging.error(
-                f"Failed to initialize Dropbox client due to an unexpected error: {e}",
+                f"Failed to initialize Dropbox client due to a storage error: {e}",
                 exc_info=True,
             )
             storage_client = None

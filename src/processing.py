@@ -1,7 +1,6 @@
 # processing.py
 import logging
 import os
-import openai
 from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
 from typing import List
 from pathlib import Path
@@ -10,7 +9,7 @@ from PIL.Image import Image
 from .config import get_settings
 from .storage.base import StorageClient
 from .storage.dto import FileMetadata
-from .exceptions import PermanentError, TransientError
+from .exceptions import PermanentError, StorageError
 from .recognition import image_to_base64, recognize
 from .pdf_utils import create_reflowed_pdf
 
@@ -21,8 +20,8 @@ def _download_and_convert(
     """Downloads a PDF and converts it to a list of images."""
     try:
         storage_client.download_file(file_id, local_pdf_path)
-    except Exception as e:
-        raise TransientError(f"API error during download: {e}") from e
+    except StorageError:
+        raise
 
     try:
         logging.info(f"Converting PDF {local_pdf_path.name} to images...")
@@ -44,22 +43,9 @@ def _recognize_pages(pages: List[Image]) -> List[str]:
     recognized_texts = []
     for i, page in enumerate(pages):
         logging.info(f"Recognizing page {i + 1}/{len(pages)}...")
-        try:
-            img_b64 = image_to_base64(page)
-            text = recognize(img_b64)
-            recognized_texts.append(text)
-        except openai.APIConnectionError as e:
-            raise TransientError("Recognition API connection error") from e
-        except openai.RateLimitError as e:
-            raise TransientError("Recognition API rate limit exceeded") from e
-        except openai.BadRequestError as e:
-            raise PermanentError(
-                f"Recognition API bad request (invalid image?): {e}"
-            ) from e
-        except openai.AuthenticationError as e:
-            raise PermanentError(
-                f"Recognition API authentication error (check API key): {e}"
-            ) from e
+        img_b64 = image_to_base64(page)
+        text = recognize(img_b64)
+        recognized_texts.append(text)
     return recognized_texts
 
 
@@ -77,8 +63,8 @@ def _create_and_upload_pdf(
             folder_id=destination_path,
             filename=result_pdf_path.name,
         )
-    except Exception as e:
-        raise TransientError(f"API error during upload: {e}") from e
+    except StorageError:
+        raise
 
 
 def _cleanup_local_files(paths: List[Path]):

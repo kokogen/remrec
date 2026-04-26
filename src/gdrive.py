@@ -10,7 +10,31 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
-from .exceptions import PermanentError
+from .exceptions import (
+    StorageAuthError,
+    StorageNotFoundError,
+    StoragePermanentError,
+    StorageTransientError,
+)
+
+
+def _raise_storage_error(action: str, error: HttpError):
+    status = getattr(error.resp, "status", None)
+    if status == 404:
+        raise StorageNotFoundError(
+            f"Google Drive resource not found during {action}"
+        ) from error
+    if status in {401, 403}:
+        raise StorageAuthError(
+            f"Google Drive authentication or authorization failed during {action}"
+        ) from error
+    if status in {408, 409, 429} or (status is not None and status >= 500):
+        raise StorageTransientError(
+            f"Google Drive transient status {status} during {action}"
+        ) from error
+    raise StoragePermanentError(
+        f"Google Drive permanent status {status} during {action}: {error}"
+    ) from error
 
 
 class GoogleDriveClient(StorageClient):
@@ -58,7 +82,7 @@ class GoogleDriveClient(StorageClient):
             return files[0]["id"] if files else None
         except HttpError as e:
             logging.error(f"Error finding file '{filename}': {e}")
-            return None
+            _raise_storage_error("find file by name", e)
 
     def list_files(self, folder_id: str) -> List[FileMetadata]:
         """
@@ -86,11 +110,11 @@ class GoogleDriveClient(StorageClient):
                 )
                 for item in files
             ]
-        except Exception as e:
+        except HttpError as e:
             logging.error(
                 f"Failed to list files in Google Drive folder ID '{folder_id}': {e}"
             )
-            return []
+            _raise_storage_error("list files", e)
 
     def download_file(self, file_id: str, local_path: str):
         """
@@ -99,20 +123,14 @@ class GoogleDriveClient(StorageClient):
         try:
             logging.info(f"Downloading file with ID '{file_id}' to {local_path}...")
             request = self.service.files().get_media(fileId=file_id)
-            fh = io.FileIO(str(local_path), "wb")
-            downloader = MediaIoBaseDownload(fh, request)
-            done = False
-            while not done:
-                status, done = downloader.next_chunk()
+            with io.FileIO(str(local_path), "wb") as fh:
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    status, done = downloader.next_chunk()
         except HttpError as e:
-            # Check if the error is due to file not found (e.g., 404)
-            if e.resp.status == 404:
-                raise FileNotFoundError(
-                    f"File with ID '{file_id}' not found in Google Drive."
-                ) from e
-            else:
-                logging.error(f"Failed to download file with ID '{file_id}': {e}")
-                raise
+            logging.error(f"Failed to download file with ID '{file_id}': {e}")
+            _raise_storage_error("download file", e)
 
     def upload_file(self, local_path: str, folder_id: str, filename: str):
         """
@@ -153,7 +171,7 @@ class GoogleDriveClient(StorageClient):
             logging.error(
                 f"Failed to upload/update file to folder ID '{folder_id}': {e}"
             )
-            raise
+            _raise_storage_error("upload file", e)
 
     def delete_file(self, file_id: str):
         """
@@ -170,7 +188,7 @@ class GoogleDriveClient(StorageClient):
                 return
             else:
                 logging.error(f"Failed to delete file with ID '{file_id}': {e}")
-                raise
+                _raise_storage_error("delete file", e)
 
     def move_file(self, file_id: str, to_folder_id: str):
         """
@@ -202,14 +220,14 @@ class GoogleDriveClient(StorageClient):
             logging.error(
                 f"Failed to move file ID '{file_id}' to folder '{to_folder_id}': {e}"
             )
-            raise
+            _raise_storage_error("move file", e)
 
     def verify_folder_exists(self, folder_id: str):
         """
         Verifies if a folder with a given ID exists and is actually a folder.
 
         Raises:
-            PermanentError: If the ID does not exist, or if the item is not a folder.
+            StoragePermanentError: If the ID does not exist, or if the item is not a folder.
         """
         try:
             file = (
@@ -223,18 +241,16 @@ class GoogleDriveClient(StorageClient):
                 )
                 return
             else:
-                raise PermanentError(
+                raise StoragePermanentError(
                     f"Google Drive ID '{folder_id}' exists but is not a folder."
                 )
         except HttpError as e:
             if e.resp.status == 404:
-                raise PermanentError(
+                raise StorageNotFoundError(
                     f"Google Drive folder with ID '{folder_id}' not found. Please check your configuration."
-                )
+                ) from e
             else:
                 logging.error(
                     f"Failed to verify Google Drive folder ID '{folder_id}': {e}"
                 )
-                raise PermanentError(
-                    f"API error while verifying folder ID '{folder_id}': {e}"
-                )
+                _raise_storage_error("verify folder", e)

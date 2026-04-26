@@ -2,8 +2,14 @@
 import base64
 import io
 import logging
+import openai
 from openai import OpenAI
 from .config import get_settings
+from .exceptions import (
+    RecognitionAuthError,
+    RecognitionPermanentError,
+    RecognitionTransientError,
+)
 
 # Global variable to hold the client instance.
 # Using a private-like name to discourage direct access.
@@ -43,8 +49,8 @@ def recognize(img_base64: str) -> str:
     settings = get_settings()
     client = get_openai_client()
 
+    logging.info("Sending image to recognition API...")
     try:
-        logging.info("Sending image to recognition API...")
         completion = client.chat.completions.create(
             model=settings.RECOGNITION_MODEL,
             messages=[
@@ -62,9 +68,42 @@ def recognize(img_base64: str) -> str:
                 }
             ],
         )
-        logging.info("Recognition successful.")
-        return completion.choices[0].message.content
-    except Exception as e:
-        logging.error(f"Recognition API call failed: {e}", exc_info=True)
-        # Re-raise the error for the main loop to handle
-        raise
+    except openai.APIConnectionError as e:
+        raise RecognitionTransientError("Recognition API connection error") from e
+    except openai.RateLimitError as e:
+        raise RecognitionTransientError("Recognition API rate limit exceeded") from e
+    except openai.APITimeoutError as e:
+        raise RecognitionTransientError("Recognition API timeout") from e
+    except openai.InternalServerError as e:
+        raise RecognitionTransientError("Recognition API server error") from e
+    except openai.AuthenticationError as e:
+        raise RecognitionAuthError("Recognition API authentication failed") from e
+    except openai.PermissionDeniedError as e:
+        raise RecognitionAuthError("Recognition API permission denied") from e
+    except openai.BadRequestError as e:
+        raise RecognitionPermanentError(
+            f"Recognition API bad request (invalid image or prompt): {e}"
+        ) from e
+    except openai.APIStatusError as e:
+        if e.status_code >= 500 or e.status_code in {408, 409, 429}:
+            raise RecognitionTransientError(
+                f"Recognition API transient status {e.status_code}"
+            ) from e
+        raise RecognitionPermanentError(
+            f"Recognition API permanent status {e.status_code}: {e}"
+        ) from e
+    except openai.OpenAIError as e:
+        raise RecognitionTransientError(f"Recognition API error: {e}") from e
+
+    try:
+        content = completion.choices[0].message.content
+    except (AttributeError, IndexError) as e:
+        raise RecognitionPermanentError(
+            "Recognition API returned malformed response"
+        ) from e
+
+    if not content:
+        raise RecognitionPermanentError("Recognition API returned empty text")
+
+    logging.info("Recognition successful.")
+    return content
