@@ -1,12 +1,33 @@
 # dbox.py
 import dropbox
 from dropbox.files import WriteMode, CommitInfo, FileMetadata as DropboxFileMetadata
-from dropbox.exceptions import ApiError
+from dropbox.exceptions import ApiError, AuthError
 import logging
 import os
 from .config import get_settings
+from .exceptions import StorageAuthError, StorageNotFoundError, StorageTransientError
 from .storage.base import StorageClient
 from .storage.dto import FileMetadata  # Our custom DTO
+
+
+def _is_dropbox_not_found(error: ApiError) -> bool:
+    """Best-effort detection of Dropbox path not-found errors."""
+    try:
+        return error.error.is_path() and error.error.get_path().is_not_found()
+    except AttributeError:
+        return False
+
+
+def _raise_storage_error(action: str, error: Exception):
+    if isinstance(error, AuthError):
+        raise StorageAuthError(
+            f"Dropbox authentication failed during {action}"
+        ) from error
+    if isinstance(error, ApiError) and _is_dropbox_not_found(error):
+        raise StorageNotFoundError(f"Dropbox path not found during {action}") from error
+    raise StorageTransientError(
+        f"Dropbox API error during {action}: {error}"
+    ) from error
 
 
 class DropboxClient(StorageClient):
@@ -24,11 +45,18 @@ class DropboxClient(StorageClient):
             # Verify successful authentication by requesting current user info
             self.dbx.users_get_current_account()
             logging.info("Dropbox client initialized successfully.")
+        except (ApiError, AuthError) as e:
+            logging.error(
+                f"Failed to initialize Dropbox client. Check your credentials. Error: {e}"
+            )
+            _raise_storage_error("initialize client", e)
         except Exception as e:
             logging.error(
                 f"Failed to initialize Dropbox client. Check your credentials. Error: {e}"
             )
-            raise
+            raise StorageTransientError(
+                f"Unexpected Dropbox error during initialize client: {e}"
+            ) from e
 
     def list_files(self, folder_id: str):
         """
@@ -57,18 +85,18 @@ class DropboxClient(StorageClient):
                         )
                     )
             return file_dtos
-        except ApiError as e:
+        except (ApiError, AuthError) as e:
             logging.error(f"Failed to list files in Dropbox path '{folder_id}': {e}")
-            return []
+            _raise_storage_error("list files", e)
 
     def download_file(self, file_id: str, local_path: str):
         """Downloads a file from Dropbox to the local filesystem."""
         try:
             logging.info(f"Downloading {file_id} to {local_path}...")
             self.dbx.files_download_to_file(str(local_path), file_id)
-        except ApiError as e:
+        except (ApiError, AuthError) as e:
             logging.error(f"Failed to download file '{file_id}': {e}")
-            raise
+            _raise_storage_error("download file", e)
 
     def upload_file(self, local_path: str, folder_id: str, filename: str):
         """Uploads a local file to Dropbox using chunked uploading for efficiency."""
@@ -89,9 +117,9 @@ class DropboxClient(StorageClient):
                     self.dbx.files_upload(
                         f.read(), remote_path, mode=WriteMode("overwrite")
                     )
-                except ApiError as e:
+                except (ApiError, AuthError) as e:
                     logging.error(f"Failed to upload file to '{remote_path}': {e}")
-                    raise
+                    _raise_storage_error("upload file", e)
         else:
             # Use chunked upload for larger files
             with open(local_path, "rb") as f:
@@ -126,11 +154,11 @@ class DropboxClient(StorageClient):
                             self.dbx.files_upload_session_append_v2(next_chunk, cursor)
                             cursor.offset = f.tell()
                     logging.info(f"Chunked upload completed for {remote_path}.")
-                except ApiError as e:
+                except (ApiError, AuthError) as e:
                     logging.error(
                         f"Failed to upload file to '{remote_path}' using chunked upload: {e}"
                     )
-                    raise
+                    _raise_storage_error("upload file", e)
 
     def move_file(self, file_id: str, to_folder_id: str):
         """Moves a file within Dropbox."""
@@ -139,23 +167,23 @@ class DropboxClient(StorageClient):
             to_path = f"{to_folder_id}/{filename}".replace("//", "/")
             logging.info(f"Moving {file_id} to {to_path}...")
             self.dbx.files_move_v2(file_id, to_path)
-        except ApiError as e:
+        except (ApiError, AuthError) as e:
             logging.error(f"Failed to move file from '{file_id}' to '{to_path}': {e}")
-            raise
+            _raise_storage_error("move file", e)
 
     def delete_file(self, file_id: str):
         """Deletes a file or folder in Dropbox."""
         try:
             logging.info(f"Deleting {file_id}...")
             self.dbx.files_delete_v2(file_id)
-        except ApiError as e:
+        except (ApiError, AuthError) as e:
             logging.error(f"Failed to delete path '{file_id}': {e}")
-            raise
+            _raise_storage_error("delete file", e)
 
     def verify_folder_exists(self, folder_id: str):
         """
         Verifies if a folder exists.
-        Raises an ApiError if the folder does not exist or is inaccessible.
+        Raises a domain storage error if the folder does not exist or is inaccessible.
         """
         try:
             # For Dropbox, an empty string signifies the root folder, which always exists.
@@ -165,12 +193,14 @@ class DropboxClient(StorageClient):
 
             self.dbx.files_get_metadata(folder_id)
             logging.info(f"Dropbox folder '{folder_id}' exists.")
-        except ApiError as e:
-            if e.error.is_path() and e.error.get_path().is_not_found():
+        except (ApiError, AuthError) as e:
+            if isinstance(e, ApiError) and _is_dropbox_not_found(e):
                 logging.critical(
                     f"Configured Dropbox folder '{folder_id}' does not exist."
                 )
-                raise  # Re-raise the error to be handled upstream (e.g., in main.py)
+                raise StorageNotFoundError(
+                    f"Configured Dropbox folder '{folder_id}' does not exist."
+                ) from e
             else:
                 logging.error(f"Error accessing Dropbox folder '{folder_id}': {e}")
-                raise  # Re-raise for other API errors (e.g., permissions)
+                _raise_storage_error("verify folder", e)

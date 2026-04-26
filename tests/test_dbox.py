@@ -5,6 +5,7 @@ from dropbox.exceptions import ApiError
 from dropbox.files import ListFolderResult, FileMetadata
 
 from src.dbox import DropboxClient
+from src.exceptions import StorageTransientError
 
 
 @patch("src.dbox.dropbox.Dropbox")
@@ -27,7 +28,7 @@ def test_dropbox_client_init_success(MockDropbox):
 @patch("src.dbox.dropbox.Dropbox", side_effect=Exception("Auth failed"))
 def test_dropbox_client_init_failure(MockDropbox):
     """Тест неудачной инициализации клиента."""
-    with pytest.raises(Exception, match="Auth failed"):
+    with pytest.raises(StorageTransientError, match="Auth failed"):
         DropboxClient("key", "secret", "token")
 
 
@@ -92,9 +93,8 @@ def test_list_files_api_error(client):
     """Тест ошибки API при получении списка файлов."""
     client.dbx.files_list_folder.side_effect = ApiError(None, None, None, None)
 
-    files = client.list_files("/some_path")
-
-    assert files == []
+    with pytest.raises(StorageTransientError):
+        client.list_files("/some_path")
 
 
 def test_download_file_success(client):
@@ -108,7 +108,7 @@ def test_download_file_success(client):
 def test_download_file_api_error(client):
     """Тест ошибки API при скачивании файла."""
     client.dbx.files_download_to_file.side_effect = ApiError(None, None, None, None)
-    with pytest.raises(ApiError):
+    with pytest.raises(StorageTransientError):
         client.download_file("/dbx_path", "/local_path")
 
 
@@ -149,5 +149,5 @@ def test_delete_file_success(client):
 def test_delete_file_api_error(client):
     """Тест ошибки при удалении файла."""
     client.dbx.files_delete_v2.side_effect = ApiError(None, None, None, None)
-    with pytest.raises(ApiError):
+    with pytest.raises(StorageTransientError):
         client.delete_file("/dbx_path")

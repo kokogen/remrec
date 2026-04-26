@@ -72,7 +72,7 @@ def test_initialize_storage_client_dropbox_auth_error(MockLogging, MockDropbox):
     # Assert
     assert storage_client is None
     MockLogging.error.assert_called_once_with(
-        "Dropbox authentication failed. Please check your token and app credentials. Error: AuthError('bad_auth', None)"
+        "Dropbox authentication failed. Please check your token and app credentials. Error: Dropbox authentication failed during initialize client"
     )
     MockDropbox.assert_called_once()
     mock_dbx_instance.users_get_current_account.assert_called_once()
@@ -105,7 +105,7 @@ def test_initialize_storage_client_dropbox_generic_exception(MockLogging, MockDr
     # Assert
     assert storage_client is None
     MockLogging.error.assert_called_once_with(
-        "Failed to initialize Dropbox client due to an unexpected error: network error",
+        "Failed to initialize Dropbox client due to a storage error: Unexpected Dropbox error during initialize client: network error",
         exc_info=True,
     )
     MockDropbox.assert_called_once()

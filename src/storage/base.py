@@ -9,6 +9,8 @@ class StorageClient(ABC):
     Abstract base class for a cloud storage client.
     Defines the common interface that all specific storage clients
     (e.g., Dropbox, Google Drive) must implement.
+    Implementations should translate provider SDK failures into domain
+    exceptions from src.exceptions instead of leaking raw SDK exceptions.
     """
 
     @abstractmethod
