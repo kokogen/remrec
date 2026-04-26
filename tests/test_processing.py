@@ -1,15 +1,13 @@
 # tests/test_processing.py
 import pytest
 from unittest.mock import patch, MagicMock
-from pathlib import Path
+from filelock import Timeout
 from src.processing import process_single_file
 from src.exceptions import PermanentError
 
 # Fixtures for mock_settings and mock_storage_client can be used from conftest.py
 
 
-@patch("src.processing.os.path.exists", return_value=True)
-@patch("src.processing.os.remove")
 @patch("src.processing.get_settings")
 @patch("src.processing.convert_from_path")
 @patch("src.processing.recognize")
@@ -19,10 +17,9 @@ def test_process_single_file_success(
     mock_recognize,
     mock_convert_from_path,
     mock_get_settings,
-    mock_os_remove,
-    mock_path_exists,
     mock_settings,
     mock_storage_client,
+    tmp_path,
 ):
     """Test the successful processing of a single file."""
     # Setup
@@ -34,7 +31,7 @@ def test_process_single_file_success(
     file_entry.path_display = "file_id_123"  # For Dropbox deletion
 
     # Mock LOCAL_BUF_DIR to be a real Path object for the test
-    mock_settings.LOCAL_BUF_DIR = Path("/tmp/buf")
+    mock_settings.LOCAL_BUF_DIR = tmp_path
     mock_settings.DST_FOLDER = "/processed"
 
     process_single_file(mock_storage_client, file_entry, mock_settings.DST_FOLDER)
@@ -44,13 +41,12 @@ def test_process_single_file_success(
     mock_convert_from_path.assert_called_once()
     mock_recognize.assert_called_once()
     mock_create_pdf.assert_called_once()
-    mock_storage_client.upload_file.assert_called_once_with(
-        local_path=Path("/tmp/buf/recognized_test.pdf"),
-        folder_id="/processed",
-        filename="recognized_test.pdf",
-    )
+    upload_call = mock_storage_client.upload_file.call_args.kwargs
+    assert upload_call["local_path"].name == "recognized_test.pdf"
+    assert upload_call["local_path"].parent.parent == tmp_path
+    assert upload_call["folder_id"] == "/processed"
+    assert upload_call["filename"] == "recognized_test.pdf"
     mock_storage_client.delete_file.assert_called_once_with("file_id_123")
-    assert mock_os_remove.call_count == 2  # local_pdf_path and result_pdf_path
 
 
 @patch("src.processing.get_settings")
@@ -58,18 +54,44 @@ def test_process_single_file_success(
     "src.processing.convert_from_path", side_effect=Exception("PDF processing failed")
 )
 def test_process_single_file_permanent_error(
-    mock_convert_from_path, mock_get_settings, mock_settings, mock_storage_client
+    mock_convert_from_path,
+    mock_get_settings,
+    mock_settings,
+    mock_storage_client,
+    tmp_path,
 ):
     """Test that a permanent error is raised when PDF processing fails."""
     # Setup
     mock_get_settings.return_value = mock_settings
+    mock_settings.LOCAL_BUF_DIR = tmp_path
     file_entry = MagicMock()
     file_entry.name = "test.pdf"
+    file_entry.id = "file_id_123"
 
     # Action and Asserts
     with pytest.raises(PermanentError):
         process_single_file(mock_storage_client, file_entry, "dummy_dest_path")
 
     mock_storage_client.download_file.assert_called_once()
+    mock_storage_client.upload_file.assert_not_called()
+    mock_storage_client.delete_file.assert_not_called()
+
+
+@patch("src.processing.FileLock")
+@patch("src.processing.get_settings")
+def test_process_single_file_skips_when_file_is_locked(
+    mock_get_settings, mock_file_lock, mock_settings, mock_storage_client, tmp_path
+):
+    """Test that a file already locked by another worker is skipped."""
+    mock_get_settings.return_value = mock_settings
+    mock_settings.LOCAL_BUF_DIR = tmp_path
+    mock_file_lock.return_value.__enter__.side_effect = Timeout("locked")
+    file_entry = MagicMock()
+    file_entry.name = "test.pdf"
+    file_entry.id = "file_id_123"
+
+    process_single_file(mock_storage_client, file_entry, "dummy_dest_path")
+
+    mock_storage_client.download_file.assert_not_called()
     mock_storage_client.upload_file.assert_not_called()
     mock_storage_client.delete_file.assert_not_called()
