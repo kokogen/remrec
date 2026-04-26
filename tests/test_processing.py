@@ -37,6 +37,9 @@ def test_process_single_file_success(
     process_single_file(mock_storage_client, file_entry, mock_settings.DST_FOLDER)
 
     # Asserts
+    mock_storage_client.file_exists.assert_called_once_with(
+        "/processed", "recognized_test.pdf"
+    )
     mock_storage_client.download_file.assert_called_once()
     mock_convert_from_path.assert_called_once()
     mock_recognize.assert_called_once()
@@ -75,6 +78,40 @@ def test_process_single_file_permanent_error(
     mock_storage_client.download_file.assert_called_once()
     mock_storage_client.upload_file.assert_not_called()
     mock_storage_client.delete_file.assert_not_called()
+
+
+@patch("src.processing.get_settings")
+@patch("src.processing.convert_from_path")
+@patch("src.processing.recognize")
+@patch("src.processing.create_reflowed_pdf")
+def test_process_single_file_skips_ocr_when_result_exists(
+    mock_create_pdf,
+    mock_recognize,
+    mock_convert_from_path,
+    mock_get_settings,
+    mock_settings,
+    mock_storage_client,
+    tmp_path,
+):
+    """Test that existing output prevents duplicate OCR work."""
+    mock_get_settings.return_value = mock_settings
+    mock_settings.LOCAL_BUF_DIR = tmp_path
+    mock_storage_client.file_exists.return_value = True
+    file_entry = MagicMock()
+    file_entry.name = "test.pdf"
+    file_entry.id = "file_id_123"
+
+    process_single_file(mock_storage_client, file_entry, "/processed")
+
+    mock_storage_client.file_exists.assert_called_once_with(
+        "/processed", "recognized_test.pdf"
+    )
+    mock_storage_client.download_file.assert_not_called()
+    mock_convert_from_path.assert_not_called()
+    mock_recognize.assert_not_called()
+    mock_create_pdf.assert_not_called()
+    mock_storage_client.upload_file.assert_not_called()
+    mock_storage_client.delete_file.assert_called_once_with("file_id_123")
 
 
 @patch("src.processing.FileLock")

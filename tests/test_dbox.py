@@ -146,6 +146,20 @@ def test_delete_file_success(client):
     client.dbx.files_delete_v2.assert_called_once_with("/dbx_path")
 
 
+def test_file_exists_success(client):
+    """Тест проверки существующего файла."""
+    client.dbx.files_get_metadata.return_value = FileMetadata(
+        name="recognized_test.pdf", path_display="/processed/recognized_test.pdf"
+    )
+
+    exists = client.file_exists("/processed", "recognized_test.pdf")
+
+    assert exists is True
+    client.dbx.files_get_metadata.assert_called_once_with(
+        "/processed/recognized_test.pdf"
+    )
+
+
 def test_delete_file_api_error(client):
     """Тест ошибки при удалении файла."""
     client.dbx.files_delete_v2.side_effect = ApiError(None, None, None, None)

@@ -166,6 +166,27 @@ def test_upload_file_success(MockMediaFileUpload, client):
     client.service.files().create().execute.assert_called_once()
 
 
+def test_file_exists_success(client):
+    """Test checking for an existing file by name."""
+    client._find_file_id_by_name = MagicMock(return_value="existing_file_id")
+
+    exists = client.file_exists("folder_id", "recognized_test.pdf")
+
+    assert exists is True
+    client._find_file_id_by_name.assert_called_once_with(
+        "recognized_test.pdf", "folder_id"
+    )
+
+
+def test_file_exists_missing(client):
+    """Test checking for a missing file by name."""
+    client._find_file_id_by_name = MagicMock(return_value=None)
+
+    exists = client.file_exists("folder_id", "recognized_test.pdf")
+
+    assert exists is False
+
+
 def test_delete_file_success(client):
     """Test deleting a file successfully by its file ID."""
     file_id_to_delete = "some_file_id"
