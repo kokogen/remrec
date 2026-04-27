@@ -20,6 +20,8 @@ def mock_settings():
     settings.DROPBOX_APP_SECRET = "test_secret"
     settings.OPENAI_API_KEY = "test_api_key"
     settings.OPENAI_BASE_URL = "https://api.openai.com/v1"
+    settings.OPENAI_TIMEOUT_SECONDS = 120.0
+    settings.OPENAI_MAX_RETRIES = 2
     settings.DROPBOX_SOURCE_DIR = "/source"
     settings.DROPBOX_DEST_DIR = "/dest"
     settings.DROPBOX_FAILED_DIR = "/failed"

@@ -27,7 +27,10 @@ def get_openai_client() -> OpenAI:
         logging.info("Initializing OpenAI client for the first time.")
         settings = get_settings()
         _client = OpenAI(
-            base_url=settings.OPENAI_BASE_URL, api_key=settings.OPENAI_API_KEY
+            base_url=settings.OPENAI_BASE_URL,
+            api_key=settings.OPENAI_API_KEY,
+            timeout=settings.OPENAI_TIMEOUT_SECONDS,
+            max_retries=settings.OPENAI_MAX_RETRIES,
         )
     return _client
 

@@ -34,6 +34,12 @@ def test_recognize_success(MockOpenAI, mock_get_settings, mock_settings):
 
     # Asserts
     assert recognized_text == "Recognized text"
+    MockOpenAI.assert_called_once_with(
+        base_url=mock_settings.OPENAI_BASE_URL,
+        api_key=mock_settings.OPENAI_API_KEY,
+        timeout=mock_settings.OPENAI_TIMEOUT_SECONDS,
+        max_retries=mock_settings.OPENAI_MAX_RETRIES,
+    )
     mock_openai_client.chat.completions.create.assert_called_once()
 
 
