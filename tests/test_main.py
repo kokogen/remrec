@@ -1,8 +1,12 @@
 # tests/test_main.py
 from unittest.mock import patch, MagicMock
-from src.main import initialize_storage_client
+import pytest
+
+from src.main import WorkflowStatus, initialize_storage_client, main, main_workflow
 from src.config import Settings
 from src.dbox import DropboxClient
+from src.exceptions import TransientError
+from src.storage.dto import FileMetadata
 import dropbox.exceptions
 
 
@@ -138,3 +142,87 @@ def test_initialize_storage_client_gdrive_returns_tuple(mock_init_gdrive):
     assert result[2] == "gdrive_dest"
     assert result[3] == "gdrive_failed"
     mock_init_gdrive.assert_called_once_with(settings)
+
+
+@patch("src.main.get_settings")
+@patch("src.main.initialize_storage_client")
+def test_main_workflow_returns_configuration_error_when_client_missing(
+    mock_initialize_storage_client, mock_get_settings, mock_settings
+):
+    """Ensures workflow status records storage initialization failures."""
+    mock_get_settings.return_value = mock_settings
+    mock_initialize_storage_client.return_value = (None, "/source", "/dest", "/failed")
+
+    status = main_workflow()
+
+    assert status == WorkflowStatus.CONFIGURATION_ERROR
+
+
+@patch("src.main.get_settings")
+@patch("src.main.initialize_storage_client")
+def test_main_workflow_returns_success_when_no_files(
+    mock_initialize_storage_client, mock_get_settings, mock_settings
+):
+    """Ensures an empty source folder is a successful workflow run."""
+    mock_get_settings.return_value = mock_settings
+    storage_client = MagicMock()
+    storage_client.list_files.return_value = []
+    mock_initialize_storage_client.return_value = (
+        storage_client,
+        "/source",
+        "/dest",
+        "/failed",
+    )
+
+    status = main_workflow()
+
+    assert status == WorkflowStatus.SUCCESS
+
+
+@patch("src.main.get_settings")
+@patch("src.main.initialize_storage_client")
+@patch("src.main.process_single_file", side_effect=TransientError("network"))
+def test_main_workflow_returns_transient_error_for_retryable_file_failure(
+    mock_process_single_file,
+    mock_initialize_storage_client,
+    mock_get_settings,
+    mock_settings,
+):
+    """Ensures retryable file failures are visible to run-once callers."""
+    mock_get_settings.return_value = mock_settings
+    storage_client = MagicMock()
+    storage_client.list_files.return_value = [
+        FileMetadata(id="file_id", name="test.pdf", path="/source/test.pdf")
+    ]
+    mock_initialize_storage_client.return_value = (
+        storage_client,
+        "/source",
+        "/dest",
+        "/failed",
+    )
+
+    status = main_workflow()
+
+    assert status == WorkflowStatus.TRANSIENT_ERROR
+
+
+@patch("src.main.setup_logging")
+@patch("src.main.main_workflow", return_value=WorkflowStatus.SUCCESS)
+@patch("sys.argv", ["remrec", "--run-once"])
+def test_main_run_once_exits_zero_on_success(mock_main_workflow, mock_setup_logging):
+    """Ensures run-once mode exposes successful workflows via process exit code."""
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 0
+
+
+@patch("src.main.setup_logging")
+@patch("src.main.main_workflow", return_value=WorkflowStatus.TRANSIENT_ERROR)
+@patch("sys.argv", ["remrec", "--run-once"])
+def test_main_run_once_exits_nonzero_on_failure(mock_main_workflow, mock_setup_logging):
+    """Ensures run-once mode exposes failed workflows via process exit code."""
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
