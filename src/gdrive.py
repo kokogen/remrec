@@ -37,6 +37,23 @@ def _raise_storage_error(action: str, error: HttpError):
     ) from error
 
 
+def _extract_google_client_config(credentials_data: dict) -> dict | None:
+    """
+    Extracts OAuth client config from supported Google credentials.json shapes.
+    """
+    for key in ("installed", "web"):
+        client_config = credentials_data.get(key)
+        if client_config and all(
+            client_config.get(field) for field in ("client_id", "client_secret")
+        ):
+            return client_config
+
+    if all(credentials_data.get(field) for field in ("client_id", "client_secret")):
+        return credentials_data
+
+    return None
+
+
 class GoogleDriveClient(StorageClient):
     """
     Client for interacting with the Google Drive API, implementing the StorageClient interface.
@@ -52,11 +69,12 @@ class GoogleDriveClient(StorageClient):
 
             creds = Credentials.from_authorized_user_info(info=token_info)
 
-            # Ensure that the client_id and client_secret from credentials_json are used
-            # This is important if creds was generated without these initially or if they need to be updated
-            if "client_id" in credentials_data and "client_secret" in credentials_data:
-                creds.client_id = credentials_data["client_id"]
-                creds.client_secret = credentials_data["client_secret"]
+            # Ensure that the client_id and client_secret from credentials_json are used.
+            # This supports real Google credentials.json shapes: installed, web, and legacy top-level.
+            client_config = _extract_google_client_config(credentials_data)
+            if client_config:
+                creds.client_id = client_config["client_id"]
+                creds.client_secret = client_config["client_secret"]
             else:
                 logging.warning(
                     "client_id or client_secret not found in GDRIVE_CREDENTIALS_JSON. Using existing from token_json if available."

@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock, ANY
 import json
 
-from src.gdrive import GoogleDriveClient
+from src.gdrive import GoogleDriveClient, _extract_google_client_config
 from src.exceptions import PermanentError
 
 
@@ -32,6 +32,57 @@ def mock_token():
     }
 
 
+@pytest.mark.parametrize(
+    ("credentials_data", "expected_client_id", "expected_client_secret"),
+    [
+        (
+            {
+                "installed": {
+                    "client_id": "installed_client_id",
+                    "client_secret": "installed_client_secret",
+                }
+            },
+            "installed_client_id",
+            "installed_client_secret",
+        ),
+        (
+            {
+                "web": {
+                    "client_id": "web_client_id",
+                    "client_secret": "web_client_secret",
+                }
+            },
+            "web_client_id",
+            "web_client_secret",
+        ),
+        (
+            {
+                "client_id": "top_level_client_id",
+                "client_secret": "top_level_client_secret",
+            },
+            "top_level_client_id",
+            "top_level_client_secret",
+        ),
+    ],
+)
+def test_extract_google_client_config_supported_shapes(
+    credentials_data, expected_client_id, expected_client_secret
+):
+    """Test extracting OAuth client config from supported credentials shapes."""
+    client_config = _extract_google_client_config(credentials_data)
+
+    assert client_config["client_id"] == expected_client_id
+    assert client_config["client_secret"] == expected_client_secret
+
+
+def test_extract_google_client_config_missing_config():
+    """Test missing OAuth client config returns None."""
+    assert (
+        _extract_google_client_config({"installed": {"client_id": "missing_secret"}})
+        is None
+    )
+
+
 @patch("src.gdrive.build")
 @patch("src.gdrive.Credentials")
 def test_gdrive_client_init_success(
@@ -39,7 +90,8 @@ def test_gdrive_client_init_success(
 ):
     """Test successful initialization of GoogleDriveClient."""
     # Setup
-    MockCredentials.from_authorized_user_info.return_value = MagicMock(valid=True)
+    mock_creds = MagicMock(valid=True)
+    MockCredentials.from_authorized_user_info.return_value = mock_creds
     mock_service = MockBuild.return_value
 
     # Action
@@ -52,6 +104,8 @@ def test_gdrive_client_init_success(
     MockCredentials.from_authorized_user_info.assert_called_once()
     MockBuild.assert_called_once_with("drive", "v3", credentials=ANY)
     assert client.service == mock_service
+    assert mock_creds.client_id == "test_client_id"
+    assert mock_creds.client_secret == "test_client_secret"
 
 
 @patch("src.gdrive.build")
