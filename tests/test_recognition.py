@@ -4,7 +4,7 @@ import pytest
 
 import src.recognition as recognition
 from src.exceptions import RecognitionPermanentError, RecognitionTransientError
-from src.recognition import recognize
+from src.recognition import _extract_recognized_text, recognize
 
 # The mock_settings fixture is now in conftest.py
 
@@ -79,3 +79,52 @@ def test_recognize_empty_response_is_permanent(
 
     with pytest.raises(RecognitionPermanentError, match="empty text"):
         recognize("fake_base64_string")
+
+
+def _completion_with_content(content):
+    completion = MagicMock()
+    completion.choices = [MagicMock()]
+    completion.choices[0].message.content = content
+    return completion
+
+
+def test_extract_recognized_text_strips_text():
+    """Recognition text should be normalized before PDF generation."""
+    completion = _completion_with_content("  Recognized text\n")
+
+    text = _extract_recognized_text(completion, max_text_chars=100)
+
+    assert text == "Recognized text"
+
+
+def test_extract_recognized_text_malformed_response_is_permanent():
+    """Malformed successful API responses should not be retried forever."""
+    completion = MagicMock()
+    completion.choices = []
+
+    with pytest.raises(RecognitionPermanentError, match="malformed response"):
+        _extract_recognized_text(completion, max_text_chars=100)
+
+
+def test_extract_recognized_text_whitespace_response_is_permanent():
+    """Whitespace-only API responses should not produce blank PDFs."""
+    completion = _completion_with_content("   \n\t")
+
+    with pytest.raises(RecognitionPermanentError, match="empty text"):
+        _extract_recognized_text(completion, max_text_chars=100)
+
+
+def test_extract_recognized_text_non_string_response_is_permanent():
+    """Non-string content is not valid recognized text."""
+    completion = _completion_with_content([{"type": "text", "text": "hello"}])
+
+    with pytest.raises(RecognitionPermanentError, match="non-text content"):
+        _extract_recognized_text(completion, max_text_chars=100)
+
+
+def test_extract_recognized_text_too_large_response_is_permanent():
+    """Oversized recognition responses should be rejected before PDF generation."""
+    completion = _completion_with_content("x" * 101)
+
+    with pytest.raises(RecognitionPermanentError, match="too much text"):
+        _extract_recognized_text(completion, max_text_chars=100)

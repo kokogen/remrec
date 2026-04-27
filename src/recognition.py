@@ -42,6 +42,30 @@ def image_to_base64(img):
     return base64.b64encode(buffered.getvalue()).decode()
 
 
+def _extract_recognized_text(completion, max_text_chars: int) -> str:
+    """Extracts and validates recognized text from a chat completion response."""
+    try:
+        content = completion.choices[0].message.content
+    except (AttributeError, IndexError) as e:
+        raise RecognitionPermanentError(
+            "Recognition API returned malformed response"
+        ) from e
+
+    if not isinstance(content, str):
+        raise RecognitionPermanentError("Recognition API returned non-text content")
+
+    text = content.strip()
+    if not text:
+        raise RecognitionPermanentError("Recognition API returned empty text")
+
+    if len(text) > max_text_chars:
+        raise RecognitionPermanentError(
+            f"Recognition API returned too much text ({len(text)} chars)"
+        )
+
+    return text
+
+
 def recognize(img_base64: str) -> str:
     """
     Sends an image to the recognition API.
@@ -98,15 +122,9 @@ def recognize(img_base64: str) -> str:
     except openai.OpenAIError as e:
         raise RecognitionTransientError(f"Recognition API error: {e}") from e
 
-    try:
-        content = completion.choices[0].message.content
-    except (AttributeError, IndexError) as e:
-        raise RecognitionPermanentError(
-            "Recognition API returned malformed response"
-        ) from e
-
-    if not content:
-        raise RecognitionPermanentError("Recognition API returned empty text")
+    content = _extract_recognized_text(
+        completion, max_text_chars=settings.RECOGNITION_MAX_TEXT_CHARS
+    )
 
     logging.info("Recognition successful.")
     return content

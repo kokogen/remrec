@@ -125,11 +125,12 @@ def test_settings_dropbox_valid_config_succeeds(
 def test_settings_openai_client_defaults(
     mock_is_file, mock_getenv, base_dropbox_settings_data
 ):
-    """Ensures OpenAI client timeout and retry defaults are set."""
+    """Ensures OpenAI client and recognition defaults are set."""
     settings = Settings(**base_dropbox_settings_data)
 
     assert settings.OPENAI_TIMEOUT_SECONDS == 120.0
     assert settings.OPENAI_MAX_RETRIES == 2
+    assert settings.RECOGNITION_MAX_TEXT_CHARS == 100_000
 
 
 @patch("os.getenv", return_value="test_token")
@@ -151,6 +152,18 @@ def test_settings_openai_max_retries_must_be_non_negative(
 ):
     """Ensures OpenAI max retries cannot be negative."""
     data = base_dropbox_settings_data | {"OPENAI_MAX_RETRIES": -1}
+
+    with pytest.raises(ValidationError):
+        Settings(**data)
+
+
+@patch("os.getenv", return_value="test_token")
+@patch("src.config.Path.is_file", return_value=False)
+def test_settings_recognition_max_text_chars_must_be_positive(
+    mock_is_file, mock_getenv, base_dropbox_settings_data
+):
+    """Ensures recognition max text chars must be positive."""
+    data = base_dropbox_settings_data | {"RECOGNITION_MAX_TEXT_CHARS": 0}
 
     with pytest.raises(ValidationError):
         Settings(**data)
