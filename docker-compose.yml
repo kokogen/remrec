@@ -1,6 +1,3 @@
-# docker-compose.yml
-version: '3.8'
-
 services:
   app:
     # The name of the container that will be created
@@ -16,7 +13,7 @@ services:
     environment:
       PYTHONPATH: /app
     volumes:
-      - ./app.log:/app/app.log
+      - ./logs:/app/logs
       - ./.dropbox.token:/app/.dropbox.token
       
     # Restart policy. 'unless-stopped' means the container

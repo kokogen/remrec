@@ -95,7 +95,6 @@ if [ "$CONFIGURED_PROVIDER" = "dropbox" ]; then
 fi
 
 mkdir -p logs
-touch app.log
 
 if [ -e .dropbox.token ] && [ ! -f .dropbox.token ]; then
     echo "WARN: .dropbox.token exists but is not a file. DROPBOX_REFRESH_TOKEN from .env must be present for Dropbox runs." >&2
