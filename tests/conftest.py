@@ -26,6 +26,7 @@ def mock_settings():
     settings.DROPBOX_DEST_DIR = "/dest"
     settings.DROPBOX_FAILED_DIR = "/failed"
     settings.RECOGNITION_MODEL = "gpt-4"
+    settings.RECOGNITION_MAX_TEXT_CHARS = 100_000
     settings.RECOGNITION_PROMPT = "test prompt"
     settings.PDF_DPI = 300
     settings.LOOP_SLEEP_SECONDS = 1

@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     DROPBOX_UPLOAD_CHUNK_SIZE: int = Field(
         128 * 1024 * 1024, validation_alias="DROPBOX_UPLOAD_CHUNK_SIZE"
     )  # 128 MB default
+    RECOGNITION_MAX_TEXT_CHARS: int = Field(100_000, gt=0)
     RECOGNITION_PROMPT: str
     PDF_DPI: int
 
