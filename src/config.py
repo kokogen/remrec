@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     STORAGE_PROVIDER: str = "dropbox"  # "dropbox" or "gdrive"
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
+    OPENAI_TIMEOUT_SECONDS: float = Field(120.0, gt=0)
+    OPENAI_MAX_RETRIES: int = Field(2, ge=0)
     LOG_LEVEL: str = "INFO"
 
     # --- Dynamic Provider-Specific Settings (set by validator) ---

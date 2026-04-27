@@ -118,3 +118,39 @@ def test_settings_dropbox_valid_config_succeeds(
         Settings(**base_dropbox_settings_data)
     except ValidationError as e:
         pytest.fail(f"Valid Dropbox configuration failed validation: {e}")
+
+
+@patch("os.getenv", return_value="test_token")
+@patch("src.config.Path.is_file", return_value=False)
+def test_settings_openai_client_defaults(
+    mock_is_file, mock_getenv, base_dropbox_settings_data
+):
+    """Ensures OpenAI client timeout and retry defaults are set."""
+    settings = Settings(**base_dropbox_settings_data)
+
+    assert settings.OPENAI_TIMEOUT_SECONDS == 120.0
+    assert settings.OPENAI_MAX_RETRIES == 2
+
+
+@patch("os.getenv", return_value="test_token")
+@patch("src.config.Path.is_file", return_value=False)
+def test_settings_openai_timeout_must_be_positive(
+    mock_is_file, mock_getenv, base_dropbox_settings_data
+):
+    """Ensures OpenAI timeout must be positive."""
+    data = base_dropbox_settings_data | {"OPENAI_TIMEOUT_SECONDS": 0}
+
+    with pytest.raises(ValidationError):
+        Settings(**data)
+
+
+@patch("os.getenv", return_value="test_token")
+@patch("src.config.Path.is_file", return_value=False)
+def test_settings_openai_max_retries_must_be_non_negative(
+    mock_is_file, mock_getenv, base_dropbox_settings_data
+):
+    """Ensures OpenAI max retries cannot be negative."""
+    data = base_dropbox_settings_data | {"OPENAI_MAX_RETRIES": -1}
+
+    with pytest.raises(ValidationError):
+        Settings(**data)
