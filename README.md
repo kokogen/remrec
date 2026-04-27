@@ -122,6 +122,9 @@ The `deploy.sh` script is designed for deploying the application to a remote ser
 ### Code Quality
 This project uses `ruff` for linting and code formatting. You can run the following commands to check and format the code:
 ```bash
+# Install development dependencies
+pip install -r requirements-dev.txt
+
 # Check for linting errors
 ruff check .
 
@@ -147,7 +150,10 @@ ruff format .
 - `exceptions.py`: Defines custom exceptions for error handling.
 - `auth.py`: A utility script to generate a Dropbox refresh token.
 - `gdrive_auth.py`: A utility script to generate a Google Drive token.
-- `requirements.txt`: A list of all Python dependencies for the project.
+- `requirements.in`: The runtime dependency input file.
+- `requirements.txt`: The pinned runtime dependencies used by the Docker image.
+- `requirements-dev.in`: The development dependency input file.
+- `requirements-dev.txt`: The pinned development and testing dependencies used by CI.
 - `.env.example`: An example file for environment variable configuration.
 - `Dockerfile`: Defines the application's container image.
 - `docker-compose.yml`: Defines how to run the application service.
@@ -166,5 +172,12 @@ The tests are located in the `tests/` directory.
 To run the complete test suite, execute the following command from the project root:
 
 ```bash
-docker-compose run --rm app /opt/venv/bin/pytest -v
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+To run the local one-shot E2E workflow against the configured storage provider:
+
+```bash
+./e2e-local.sh
 ```

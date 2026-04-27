@@ -11,6 +11,7 @@
 # Caches and local files
 .ruff_cache/
 .pytest_cache/
+.pip-tools-cache/
 __pycache__/
 *.pyc
 app.lock
@@ -23,3 +24,5 @@ app.lock
 # Documentation / Agent context
 README.md
 GEMINI.md
+requirements-dev.in
+requirements-dev.txt

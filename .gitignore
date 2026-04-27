@@ -3,6 +3,7 @@
 *.env
 .ruff_cache/
 .pytest_cache/
+.pip-tools-cache/
 __pycache__/
 *.pyc
 app.lock

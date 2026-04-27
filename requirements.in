@@ -11,9 +11,4 @@ pdf2image
 reportlab
 python-dotenv
 filelock
-
-# Development and testing dependencies
-pytest
-pytest-cov
-ruff
-pip-tools
+requests
