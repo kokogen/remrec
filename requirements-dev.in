@@ -1,0 +1,10 @@
+# requirements-dev.in
+
+-c requirements.txt
+-r requirements.in
+
+# Development and testing dependencies
+pytest
+pytest-cov
+ruff
+pip-tools
