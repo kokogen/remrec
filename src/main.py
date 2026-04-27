@@ -2,6 +2,7 @@
 import logging
 import logging.handlers
 import time
+from enum import Enum
 from typing import Optional, Tuple
 
 from .config import get_settings
@@ -10,6 +11,18 @@ from .gdrive import GoogleDriveClient
 from .storage.base import StorageClient
 from .exceptions import PermanentError, StorageAuthError, StorageError, TransientError
 from .processing import process_single_file
+
+
+class WorkflowStatus(Enum):
+    SUCCESS = "success"
+    CONFIGURATION_ERROR = "configuration_error"
+    TRANSIENT_ERROR = "transient_error"
+    PERMANENT_ERROR = "permanent_error"
+    UNHANDLED_ERROR = "unhandled_error"
+
+    @property
+    def is_success(self) -> bool:
+        return self is WorkflowStatus.SUCCESS
 
 
 def setup_logging():
@@ -138,7 +151,7 @@ def _quarantine_file(
         )
 
 
-def main_workflow():
+def main_workflow() -> WorkflowStatus:
     logging.info("Starting workflow...")
     settings = get_settings()
 
@@ -151,7 +164,7 @@ def main_workflow():
         logging.critical(
             f"Could not establish a connection to {settings.STORAGE_PROVIDER}."
         )
-        return
+        return WorkflowStatus.CONFIGURATION_ERROR
 
     # Check necessary folders exist
     try:
@@ -163,14 +176,15 @@ def main_workflow():
         logging.critical(
             f"A configured folder for {settings.STORAGE_PROVIDER} does not exist or is inaccessible. Aborting workflow. Error: {e}"
         )
-        return  # Exit main_workflow if a configured folder is missing or inaccessible
+        return WorkflowStatus.CONFIGURATION_ERROR
 
     files_to_process = storage_client.list_files(source_path)
     if not files_to_process:
         logging.info("No new files to process.")
-        return
+        return WorkflowStatus.SUCCESS
 
     logging.info(f"Found {len(files_to_process)} files to process.")
+    workflow_status = WorkflowStatus.SUCCESS
     for entry in files_to_process:
         # A simple check for PDF files based on name
         if entry.name.lower().endswith(".pdf"):
@@ -190,6 +204,7 @@ def main_workflow():
                     exc_info=True,
                 )
                 _quarantine_file(storage_client, entry.id, entry.name, failed_path)
+                workflow_status = WorkflowStatus.PERMANENT_ERROR
 
             except TransientError as e:
                 duration = time.monotonic() - start_time
@@ -197,6 +212,7 @@ def main_workflow():
                     f"TRANSIENT ERROR processing file {entry.name} after {duration:.2f} seconds. Will retry on next run. Error: {e}",
                     exc_info=True,
                 )
+                workflow_status = WorkflowStatus.TRANSIENT_ERROR
 
             except Exception as e:
                 duration = time.monotonic() - start_time
@@ -205,8 +221,10 @@ def main_workflow():
                     exc_info=True,
                 )
                 _quarantine_file(storage_client, entry.id, entry.name, failed_path)
+                workflow_status = WorkflowStatus.UNHANDLED_ERROR
         else:
             logging.warning(f"Skipping non-PDF or folder entry: {entry.name}")
+    return workflow_status
 
 
 def main():
@@ -225,13 +243,15 @@ def main():
     if args.run_once:
         logging.info("Starting application in single-run mode.")
         try:
-            main_workflow()
+            workflow_status = main_workflow()
         except Exception as e:
             logging.critical(
                 f"An unexpected error occurred during the single run: {e}",
                 exc_info=True,
             )
+            raise SystemExit(1) from e
         logging.info("Single run finished.")
+        raise SystemExit(0 if workflow_status.is_success else 1)
     else:
         settings = get_settings()
         logging.info(
@@ -242,7 +262,11 @@ def main():
 
         while True:
             try:
-                main_workflow()
+                workflow_status = main_workflow()
+                if not workflow_status.is_success:
+                    raise RuntimeError(
+                        f"Workflow finished with {workflow_status.value}"
+                    )
                 # Reset failure count on success
                 if failure_count > 0:
                     logging.info("Workflow successful, resetting failure backoff.")
