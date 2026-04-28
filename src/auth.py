@@ -5,12 +5,20 @@ import base64
 import webbrowser
 import urllib.parse
 import requests
-from .config import get_settings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TOKEN_STORAGE_FILE = ".dropbox.token"
 
 
-def generate_pkce_challange():
+class DropboxAuthSettings(BaseSettings):
+    """Minimal settings needed to bootstrap Dropbox OAuth."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    DROPBOX_APP_KEY: str
+
+
+def generate_pkce_challenge():
     """Generates a code verifier and a code challenge for PKCE."""
     code_verifier = secrets.token_urlsafe(64)
     hashed = hashlib.sha256(code_verifier.encode("utf-8")).digest()
@@ -18,12 +26,17 @@ def generate_pkce_challange():
     return code_verifier, code_challenge
 
 
+def generate_pkce_challange():
+    """Backward-compatible wrapper for the historical misspelled helper."""
+    return generate_pkce_challenge()
+
+
 def get_refresh_token(app_key: str):
     """
     Guides the user through the Dropbox OAuth2 PKCE flow to get a refresh token.
     The token is saved to a file.
     """
-    code_verifier, code_challenge = generate_pkce_challange()
+    code_verifier, code_challenge = generate_pkce_challenge()
 
     auth_params = {
         "client_id": app_key,
@@ -94,12 +107,21 @@ def get_refresh_token(app_key: str):
         print(f"\n❌ An unexpected error occurred: {e}")
 
 
-if __name__ == "__main__":
-    # We can run this script directly to perform authorization
-    settings = get_settings()
-    app_key = settings.DROPBOX_APP_KEY
-    if not app_key or "YOUR_APP_KEY" in app_key:
+def main():
+    """CLI entrypoint for generating a Dropbox refresh token."""
+    try:
+        settings = DropboxAuthSettings()
+    except Exception:
+        print("Error: `DROPBOX_APP_KEY` is not configured in your .env file.")
+        print("Please copy .env.example to .env and fill in your Dropbox App Key.")
+        return
+
+    if "YOUR_APP_KEY" in settings.DROPBOX_APP_KEY:
         print("Error: `DROPBOX_APP_KEY` is not configured in your .env file.")
         print("Please copy .env.example to .env and fill in your Dropbox App Key.")
     else:
-        get_refresh_token(app_key)
+        get_refresh_token(settings.DROPBOX_APP_KEY)
+
+
+if __name__ == "__main__":
+    main()

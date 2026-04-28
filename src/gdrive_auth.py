@@ -45,5 +45,11 @@ def gdrive_authenticate():
             token_file.write(creds.to_json())
         print(f"Token saved to {token_path}")
 
-    if __name__ == "__main__":
-        gdrive_authenticate()
+
+def main():
+    """CLI entrypoint for generating or refreshing a Google Drive token."""
+    gdrive_authenticate()
+
+
+if __name__ == "__main__":
+    main()

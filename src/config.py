@@ -1,7 +1,7 @@
 from pathlib import Path
 from pydantic import Field
-from pydantic_settings import BaseSettings
-from typing import Any, Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Any, Literal, Optional
 import logging
 from functools import lru_cache
 import os
@@ -14,8 +14,10 @@ class Settings(BaseSettings):
     Automatically reads variables from the environment and the token file.
     """
 
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
     # --- General Settings ---
-    STORAGE_PROVIDER: str = "dropbox"  # "dropbox" or "gdrive"
+    STORAGE_PROVIDER: Literal["dropbox", "gdrive"] = "dropbox"
     OPENAI_API_KEY: str
     OPENAI_BASE_URL: str
     OPENAI_TIMEOUT_SECONDS: float = Field(120.0, gt=0)
@@ -99,8 +101,6 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "For Google Drive, CREDENTIALS_JSON, TOKEN_JSON and all FOLDER_IDs must be set."
                 )
-        else:
-            raise ValueError("Invalid STORAGE_PROVIDER. Must be 'dropbox' or 'gdrive'.")
 
     def model_post_init(self, __context: Any) -> None:
         """Load Dropbox token from file if it exists and run validations."""
