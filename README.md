@@ -10,7 +10,7 @@ The application watches a specified Dropbox or Google Drive folder for new PDF e
 - **Dropbox & Google Drive Integration**: Seamlessly uses either Dropbox or Google Drive for both input and output of files.
 - **AI-Powered**: Leverages large vision models (like Gemini) for high-accuracy handwriting recognition.
 - **Containerized**: Packaged with Docker and Docker Compose for easy, one-command deployment.
-- **Continuous & On-Demand**: Runs as a continuous service that watches for files and will support on-demand single runs for debugging.
+- **Continuous & On-Demand**: Runs as a continuous service that watches for files and supports one-shot runs for debugging and E2E checks.
 - **Robust Error Handling**:
     - Distinguishes between transient (network) and permanent (bad file) errors.
     - Automatically quarantines files that fail processing into a `/failed_files` folder.
@@ -20,6 +20,7 @@ The application watches a specified Dropbox or Google Drive folder for new PDF e
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
+- Python 3.11 if you want to run tests or auth utilities outside Docker.
 
 ## Configuration for Local Use
 
@@ -57,52 +58,64 @@ To run this application on your own machine, you'll need to provide your credent
     You can also customize other non-secret settings in this file if needed.
 
 3.  **Generate Dropbox Refresh Token (if using Dropbox)**:
-    Run the interactive `auth.py` script to generate your Dropbox refresh token.
+    Run the interactive Dropbox auth utility to generate your refresh token.
     ```shell
-    docker-compose run --rm app python -m src.auth
+    docker compose run --rm app python -m src.auth
     ```
-    Follow the on-screen prompts. This will create a `.dropbox.token` file in your project root, which is automatically used by the application.
+    Or run it directly from a local Python environment:
+    ```shell
+    python -m src.auth
+    ```
+    This bootstrap utility only requires `DROPBOX_APP_KEY` in `.env`; it does not require an existing `DROPBOX_REFRESH_TOKEN`. Follow the prompts. On success it creates a `.dropbox.token` file in the project root. You can also set `DROPBOX_REFRESH_TOKEN` directly in `.env`; the environment variable takes precedence over the token file.
+
+    `.dropbox.token` must be a regular file, not a directory. If Docker Compose previously created it as a directory, remove that directory and rerun the auth utility or set `DROPBOX_REFRESH_TOKEN` in `.env`.
 
 4.  **Generate Google Drive Token (if using Google Drive)**:
     You need to obtain a `credentials.json` file from the Google Cloud Console for a desktop application. Then, run the interactive `gdrive_auth.py` script.
     ```bash
-    docker-compose run --rm app python -m src.gdrive_auth
+    docker compose run --rm app python -m src.gdrive_auth
+    ```
+    Or run it directly from a local Python environment:
+    ```shell
+    python -m src.gdrive_auth
     ```
     Follow the prompts to provide the path to your `credentials.json` file. This will generate a `gdrive_token.json` file in your project root. You will then need to copy the content of this `gdrive_token.json` and `credentials.json` into your `.env` file under `GDRIVE_TOKEN_JSON` and `GDRIVE_CREDENTIALS_JSON` respectively. Ensure they are single-line JSON strings.
 
 ## Running the Service Locally
 
-The easiest way to run the service on your local machine is with the `deploy-local.sh` script.
+For normal local development, use Docker Compose directly. The compose file is configured to build the image from the current working tree.
 
-1.  **Build the Docker Image:**
-    The `docker-compose.yml` is configured to build the image from the local `Dockerfile`.
-    ```shell
-    docker-compose build
-    ```
-2.  **Find an Image Tag:** Find the latest version tag to use from the project's Docker Hub or Git repository.
-3.  **Run the Script:** Execute the script with the desired tag.
-    ```shell
-    ./deploy-local.sh <your_image_tag>
-    ```
-This script will automatically:
-- Check for the required `.env` file.
-- Update the image tag in your `.env` file.
-- Pull the specified Docker image from Docker Hub.
-- Start the service in the background using `docker-compose up -d`.
+```shell
+docker compose up -d --build
+```
+
+To run a one-shot workflow against the configured storage provider:
+
+```shell
+docker compose run --rm app python -m src.main --run-once
+```
+
+The `deploy-local.sh` script is for running a published Docker Hub image by tag instead of the local working tree:
+
+```shell
+./deploy-local.sh <image_tag>
+```
+
+That script checks for `.env`, updates `REMREC_IMAGE_TAG`, pulls `kokogen/remrec:<image_tag>`, and starts the service in the background.
 
 ### Other Useful Commands
 
 -   **Viewing Logs:**
     ```shell
-    docker-compose logs -f
+    docker compose logs -f
     ```
 -   **Running a One-Time Task (Debug Mode):**
     ```shell
-    docker-compose run --rm app python -m src.main --run-once
+    docker compose run --rm app python -m src.main --run-once
     ```
 -   **Stopping the Application:**
     ```shell
-    docker-compose down
+    docker compose down
     ```
 
 ---
@@ -115,6 +128,7 @@ The Docker image is automatically built and pushed to Docker Hub by a GitHub Act
 
 -   **Trigger:** The workflow runs automatically only when a new version tag (e.g., `v1.2.3`) is pushed to the repository.
 -   **Workflow File:** `.github/workflows/build-and-push.yml`
+-   **Release flow:** merge changes to `master`, create the next `vX.Y.Z` tag, then push `master` and the tag.
 
 ### Remote Deployment (Synology)
 The `deploy.sh` script is designed for deploying the application to a remote server, such as a Synology NAS. It requires manual configuration of SSH details within the script.
@@ -173,7 +187,9 @@ To run the complete test suite, execute the following command from the project r
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -v
+pytest -q
+ruff check .
+ruff format --check .
 ```
 
 To run the local one-shot E2E workflow against the configured storage provider:
