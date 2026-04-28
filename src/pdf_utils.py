@@ -1,5 +1,7 @@
 # pdf_utils.py
 import logging
+from xml.sax.saxutils import escape
+
 from .config import get_settings
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak
@@ -50,8 +52,8 @@ def create_reflowed_pdf(page_contents: list[str], pdf_path: str):
     for i, page_content in enumerate(page_contents):
         title_text = f"--- Page {i + 1} ---"
 
-        # Replace newlines in the content with <br/> for ReportLab Paragraph
-        content_text = page_content.replace("\n", "<br/>")
+        # Escape OCR text before allowing ReportLab paragraph line-break markup.
+        content_text = escape(page_content).replace("\n", "<br/>")
 
         # Add title paragraph
         flowables.append(Paragraph(title_text, styles["h2"]))

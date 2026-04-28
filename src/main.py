@@ -9,7 +9,13 @@ from .config import get_settings
 from .dbox import DropboxClient
 from .gdrive import GoogleDriveClient
 from .storage.base import StorageClient
-from .exceptions import PermanentError, StorageAuthError, StorageError, TransientError
+from .exceptions import (
+    PermanentError,
+    StorageAuthError,
+    StorageError,
+    StorageNotFoundError,
+    TransientError,
+)
 from .processing import process_single_file
 
 
@@ -178,7 +184,27 @@ def main_workflow() -> WorkflowStatus:
         )
         return WorkflowStatus.CONFIGURATION_ERROR
 
-    files_to_process = storage_client.list_files(source_path)
+    try:
+        files_to_process = storage_client.list_files(source_path)
+    except (StorageAuthError, StorageNotFoundError) as e:
+        logging.critical(
+            f"Cannot list source folder for {settings.STORAGE_PROVIDER}. Check storage configuration. Error: {e}",
+            exc_info=True,
+        )
+        return WorkflowStatus.CONFIGURATION_ERROR
+    except TransientError as e:
+        logging.warning(
+            f"Could not list source folder for {settings.STORAGE_PROVIDER}. Will retry on next run. Error: {e}",
+            exc_info=True,
+        )
+        return WorkflowStatus.TRANSIENT_ERROR
+    except StorageError as e:
+        logging.error(
+            f"Storage error while listing source folder for {settings.STORAGE_PROVIDER}. Error: {e}",
+            exc_info=True,
+        )
+        return WorkflowStatus.PERMANENT_ERROR
+
     if not files_to_process:
         logging.info("No new files to process.")
         return WorkflowStatus.SUCCESS
