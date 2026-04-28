@@ -5,7 +5,7 @@ import pytest
 from src.main import WorkflowStatus, initialize_storage_client, main, main_workflow
 from src.config import Settings
 from src.dbox import DropboxClient
-from src.exceptions import TransientError
+from src.exceptions import StorageAuthError, StoragePermanentError, TransientError
 from src.storage.dto import FileMetadata
 import dropbox.exceptions
 
@@ -216,6 +216,69 @@ def test_main_workflow_returns_transient_error_for_retryable_file_failure(
     status = main_workflow()
 
     assert status == WorkflowStatus.TRANSIENT_ERROR
+
+
+@patch("src.main.get_settings")
+@patch("src.main.initialize_storage_client")
+def test_main_workflow_returns_transient_error_when_listing_source_fails_temporarily(
+    mock_initialize_storage_client, mock_get_settings, mock_settings
+):
+    """Ensures source listing transient failures are visible to run-once callers."""
+    mock_get_settings.return_value = mock_settings
+    storage_client = MagicMock()
+    storage_client.list_files.side_effect = TransientError("temporary API failure")
+    mock_initialize_storage_client.return_value = (
+        storage_client,
+        "/source",
+        "/dest",
+        "/failed",
+    )
+
+    status = main_workflow()
+
+    assert status == WorkflowStatus.TRANSIENT_ERROR
+
+
+@patch("src.main.get_settings")
+@patch("src.main.initialize_storage_client")
+def test_main_workflow_returns_configuration_error_when_listing_source_is_unauthorized(
+    mock_initialize_storage_client, mock_get_settings, mock_settings
+):
+    """Ensures storage auth failures while listing source are configuration errors."""
+    mock_get_settings.return_value = mock_settings
+    storage_client = MagicMock()
+    storage_client.list_files.side_effect = StorageAuthError("bad token")
+    mock_initialize_storage_client.return_value = (
+        storage_client,
+        "/source",
+        "/dest",
+        "/failed",
+    )
+
+    status = main_workflow()
+
+    assert status == WorkflowStatus.CONFIGURATION_ERROR
+
+
+@patch("src.main.get_settings")
+@patch("src.main.initialize_storage_client")
+def test_main_workflow_returns_permanent_error_for_other_storage_listing_failures(
+    mock_initialize_storage_client, mock_get_settings, mock_settings
+):
+    """Ensures non-retryable source listing storage failures do not crash run-once."""
+    mock_get_settings.return_value = mock_settings
+    storage_client = MagicMock()
+    storage_client.list_files.side_effect = StoragePermanentError("bad request")
+    mock_initialize_storage_client.return_value = (
+        storage_client,
+        "/source",
+        "/dest",
+        "/failed",
+    )
+
+    status = main_workflow()
+
+    assert status == WorkflowStatus.PERMANENT_ERROR
 
 
 @patch("src.main.setup_logging")

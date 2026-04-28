@@ -9,6 +9,7 @@ from src.exceptions import PermanentError
 
 
 @patch("src.processing.get_settings")
+@patch("src.processing.pdfinfo_from_path")
 @patch("src.processing.convert_from_path")
 @patch("src.processing.recognize")
 @patch("src.processing.create_reflowed_pdf")
@@ -16,6 +17,7 @@ def test_process_single_file_success(
     mock_create_pdf,
     mock_recognize,
     mock_convert_from_path,
+    mock_pdfinfo_from_path,
     mock_get_settings,
     mock_settings,
     mock_storage_client,
@@ -24,6 +26,7 @@ def test_process_single_file_success(
     """Test the successful processing of a single file."""
     # Setup
     mock_get_settings.return_value = mock_settings
+    mock_pdfinfo_from_path.return_value = {"Pages": 1}
     mock_convert_from_path.return_value = [MagicMock()]
     file_entry = MagicMock()
     file_entry.name = "test.pdf"
@@ -41,7 +44,13 @@ def test_process_single_file_success(
         "/processed", "recognized_test.pdf"
     )
     mock_storage_client.download_file.assert_called_once()
-    mock_convert_from_path.assert_called_once()
+    mock_pdfinfo_from_path.assert_called_once()
+    mock_convert_from_path.assert_called_once_with(
+        mock_storage_client.download_file.call_args.args[1].as_posix(),
+        dpi=mock_settings.PDF_DPI,
+        first_page=1,
+        last_page=1,
+    )
     mock_recognize.assert_called_once()
     mock_create_pdf.assert_called_once()
     upload_call = mock_storage_client.upload_file.call_args.kwargs
@@ -53,11 +62,13 @@ def test_process_single_file_success(
 
 
 @patch("src.processing.get_settings")
+@patch("src.processing.pdfinfo_from_path")
 @patch(
     "src.processing.convert_from_path", side_effect=Exception("PDF processing failed")
 )
 def test_process_single_file_permanent_error(
     mock_convert_from_path,
+    mock_pdfinfo_from_path,
     mock_get_settings,
     mock_settings,
     mock_storage_client,
@@ -66,6 +77,7 @@ def test_process_single_file_permanent_error(
     """Test that a permanent error is raised when PDF processing fails."""
     # Setup
     mock_get_settings.return_value = mock_settings
+    mock_pdfinfo_from_path.return_value = {"Pages": 1}
     mock_settings.LOCAL_BUF_DIR = tmp_path
     file_entry = MagicMock()
     file_entry.name = "test.pdf"
@@ -76,18 +88,91 @@ def test_process_single_file_permanent_error(
         process_single_file(mock_storage_client, file_entry, "dummy_dest_path")
 
     mock_storage_client.download_file.assert_called_once()
+    mock_pdfinfo_from_path.assert_called_once()
+    mock_convert_from_path.assert_called_once()
     mock_storage_client.upload_file.assert_not_called()
     mock_storage_client.delete_file.assert_not_called()
 
 
 @patch("src.processing.get_settings")
+@patch("src.processing.pdfinfo_from_path")
 @patch("src.processing.convert_from_path")
+def test_process_single_file_zero_page_pdf_is_permanent_error(
+    mock_convert_from_path,
+    mock_pdfinfo_from_path,
+    mock_get_settings,
+    mock_settings,
+    mock_storage_client,
+    tmp_path,
+):
+    """PDF metadata with zero pages should fail before page conversion."""
+    mock_get_settings.return_value = mock_settings
+    mock_settings.LOCAL_BUF_DIR = tmp_path
+    mock_pdfinfo_from_path.return_value = {"Pages": 0}
+    file_entry = MagicMock()
+    file_entry.name = "test.pdf"
+    file_entry.id = "file_id_123"
+
+    with pytest.raises(PermanentError, match="PDF has no pages"):
+        process_single_file(mock_storage_client, file_entry, "dummy_dest_path")
+
+    mock_storage_client.download_file.assert_called_once()
+    mock_pdfinfo_from_path.assert_called_once()
+    mock_convert_from_path.assert_not_called()
+    mock_storage_client.upload_file.assert_not_called()
+    mock_storage_client.delete_file.assert_not_called()
+
+
+@patch("src.processing.get_settings")
+@patch("src.processing.pdfinfo_from_path")
+@patch("src.processing.convert_from_path")
+@patch("src.processing.recognize")
+@patch("src.processing.create_reflowed_pdf")
+def test_process_single_file_converts_and_closes_pages_one_at_a_time(
+    mock_create_pdf,
+    mock_recognize,
+    mock_convert_from_path,
+    mock_pdfinfo_from_path,
+    mock_get_settings,
+    mock_settings,
+    mock_storage_client,
+    tmp_path,
+):
+    """Ensures large PDFs are processed page-by-page instead of all at once."""
+    mock_get_settings.return_value = mock_settings
+    mock_settings.LOCAL_BUF_DIR = tmp_path
+    mock_pdfinfo_from_path.return_value = {"Pages": 2}
+    first_page = MagicMock()
+    second_page = MagicMock()
+    mock_convert_from_path.side_effect = [[first_page], [second_page]]
+    mock_recognize.side_effect = ["page one", "page two"]
+    file_entry = MagicMock()
+    file_entry.name = "test.pdf"
+    file_entry.id = "file_id_123"
+
+    process_single_file(mock_storage_client, file_entry, "/processed")
+
+    assert mock_convert_from_path.call_count == 2
+    assert mock_convert_from_path.call_args_list[0].kwargs["first_page"] == 1
+    assert mock_convert_from_path.call_args_list[0].kwargs["last_page"] == 1
+    assert mock_convert_from_path.call_args_list[1].kwargs["first_page"] == 2
+    assert mock_convert_from_path.call_args_list[1].kwargs["last_page"] == 2
+    first_page.close.assert_called_once_with()
+    second_page.close.assert_called_once_with()
+    mock_create_pdf.assert_called_once()
+    assert mock_create_pdf.call_args.args[0] == ["page one", "page two"]
+
+
+@patch("src.processing.get_settings")
+@patch("src.processing.convert_from_path")
+@patch("src.processing.pdfinfo_from_path")
 @patch("src.processing.recognize")
 @patch("src.processing.create_reflowed_pdf")
 def test_process_single_file_skips_ocr_when_result_exists(
     mock_create_pdf,
     mock_recognize,
     mock_convert_from_path,
+    mock_pdfinfo_from_path,
     mock_get_settings,
     mock_settings,
     mock_storage_client,
@@ -107,6 +192,7 @@ def test_process_single_file_skips_ocr_when_result_exists(
         "/processed", "recognized_test.pdf"
     )
     mock_storage_client.download_file.assert_not_called()
+    mock_pdfinfo_from_path.assert_not_called()
     mock_convert_from_path.assert_not_called()
     mock_recognize.assert_not_called()
     mock_create_pdf.assert_not_called()

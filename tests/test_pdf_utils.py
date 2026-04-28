@@ -85,3 +85,25 @@ def test_create_reflowed_pdf_font_fallback(
     assert style_used.fontName == "Helvetica"
 
     mock_doc.build.assert_called_once()
+
+
+@patch("src.pdf_utils.Paragraph")
+@patch("src.pdf_utils.SimpleDocTemplate")
+@patch("src.pdf_utils.pdfmetrics")
+@patch("src.pdf_utils.get_settings")
+def test_create_reflowed_pdf_escapes_ocr_text_before_paragraph_markup(
+    mock_get_settings,
+    mock_pdfmetrics,
+    MockSimpleDocTemplate,
+    MockParagraph,
+    mock_settings,
+):
+    """OCR text with XML-like characters should not be treated as ReportLab markup."""
+    mock_get_settings.return_value = mock_settings
+    mock_settings.FONT_PATH.exists.return_value = False
+    text = ["A <tag> & B\nnext"]
+
+    create_reflowed_pdf(text, "/fake/path/output.pdf")
+
+    content_call = MockParagraph.call_args_list[-1]
+    assert content_call.args[0] == "A &lt;tag&gt; &amp; B<br/>next"

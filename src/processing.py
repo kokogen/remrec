@@ -2,10 +2,13 @@
 import hashlib
 import logging
 import tempfile
-from pdf2image import convert_from_path, exceptions as pdf2image_exceptions
+from pdf2image import (
+    convert_from_path,
+    exceptions as pdf2image_exceptions,
+    pdfinfo_from_path,
+)
 from typing import List
 from pathlib import Path
-from PIL.Image import Image
 from filelock import FileLock, Timeout
 
 from .config import get_settings
@@ -16,38 +19,72 @@ from .recognition import image_to_base64, recognize
 from .pdf_utils import create_reflowed_pdf
 
 
-def _download_and_convert(
-    storage_client: StorageClient, file_id: str, local_pdf_path: Path
-) -> List[Image]:
-    """Downloads a PDF and converts it to a list of images."""
+def _download_pdf(storage_client: StorageClient, file_id: str, local_pdf_path: Path):
+    """Downloads a PDF to local storage."""
     try:
         storage_client.download_file(file_id, local_pdf_path)
     except StorageError:
         raise
 
+
+def _get_pdf_page_count(local_pdf_path: Path) -> int:
+    """Returns the number of pages in a PDF."""
     try:
-        logging.info(f"Converting PDF {local_pdf_path.name} to images...")
-        pages = convert_from_path(str(local_pdf_path), dpi=get_settings().PDF_DPI)
-        if not pages:
-            raise PermanentError("PDF conversion resulted in 0 pages.")
-        return pages
+        pdf_info = pdfinfo_from_path(str(local_pdf_path))
+        page_count = int(pdf_info.get("Pages", 0))
+        if page_count <= 0:
+            raise PermanentError("PDF has no pages.")
+        return page_count
     except (
         pdf2image_exceptions.PDFPageCountError,
         pdf2image_exceptions.PDFSyntaxError,
     ) as e:
         raise PermanentError(f"Corrupted or invalid PDF file: {e}") from e
+    except PermanentError:
+        raise
     except Exception as e:
-        raise PermanentError(f"PDF conversion failed: {e}") from e
+        raise PermanentError(f"Could not read PDF metadata: {e}") from e
 
 
-def _recognize_pages(pages: List[Image]) -> List[str]:
-    """Recognizes text from a list of images."""
+def _convert_pdf_page(local_pdf_path: Path, page_number: int):
+    """Converts one PDF page to an image."""
+    try:
+        pages = convert_from_path(
+            str(local_pdf_path),
+            dpi=get_settings().PDF_DPI,
+            first_page=page_number,
+            last_page=page_number,
+        )
+        if len(pages) != 1:
+            raise PermanentError(
+                f"PDF page {page_number} conversion returned no image."
+            )
+        return pages[0]
+    except (
+        pdf2image_exceptions.PDFPageCountError,
+        pdf2image_exceptions.PDFSyntaxError,
+    ) as e:
+        raise PermanentError(f"Corrupted or invalid PDF file: {e}") from e
+    except PermanentError:
+        raise
+    except Exception as e:
+        raise PermanentError(f"PDF page {page_number} conversion failed: {e}") from e
+
+
+def _recognize_pdf_pages(local_pdf_path: Path) -> List[str]:
+    """Recognizes text from a PDF one page at a time."""
+    page_count = _get_pdf_page_count(local_pdf_path)
+    logging.info(f"Converting and recognizing {page_count} PDF page(s)...")
     recognized_texts = []
-    for i, page in enumerate(pages):
-        logging.info(f"Recognizing page {i + 1}/{len(pages)}...")
-        img_b64 = image_to_base64(page)
-        text = recognize(img_b64)
-        recognized_texts.append(text)
+    for page_number in range(1, page_count + 1):
+        logging.info(f"Recognizing page {page_number}/{page_count}...")
+        page = _convert_pdf_page(local_pdf_path, page_number)
+        try:
+            img_b64 = image_to_base64(page)
+            text = recognize(img_b64)
+            recognized_texts.append(text)
+        finally:
+            page.close()
     return recognized_texts
 
 
@@ -116,13 +153,11 @@ def process_single_file(
                 local_pdf_path = temp_dir / file_entry.name
                 result_pdf_path = temp_dir / result_filename
 
-                # 1. Download and Convert
-                pages = _download_and_convert(
-                    storage_client, file_entry.id, local_pdf_path
-                )
+                # 1. Download
+                _download_pdf(storage_client, file_entry.id, local_pdf_path)
 
-                # 2. Recognize Text
-                recognized_texts = _recognize_pages(pages)
+                # 2. Convert and Recognize Text
+                recognized_texts = _recognize_pdf_pages(local_pdf_path)
 
                 # 3. Create and Upload PDF
                 _create_and_upload_pdf(
