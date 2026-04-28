@@ -91,3 +91,18 @@ Current agreed process for implementation requests that should be completed end 
 12. Report the commit, merge commit, tag, push result, and completed checks.
 
 GitHub Actions are triggered by pushing a version tag. After push, the remote workflow is expected to run the CI test job and Docker build/push job.
+
+## Documentation-Only Cycle
+
+If the change is limited to documentation files (`*.md`, comments, or agent notes)
+and does not modify code, tests, dependencies, Docker, scripts, or configuration,
+use the short release cycle:
+
+1. Check branch and worktree state.
+2. Create a feature branch from `master`.
+3. Make the documentation-only change.
+4. Skip local test, lint, format, and E2E gates.
+5. Commit, merge into `master` with a merge commit, tag the next `vX.Y.Z`, and push
+   `master` plus the tag.
+6. Report that the change was documentation-only and verification was intentionally
+   skipped by policy.
