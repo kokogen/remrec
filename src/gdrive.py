@@ -54,6 +54,11 @@ def _extract_google_client_config(credentials_data: dict) -> dict | None:
     return None
 
 
+def _escape_drive_query_value(value: str) -> str:
+    """Escapes a value for use inside a quoted Google Drive query literal."""
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
 class GoogleDriveClient(StorageClient):
     """
     Client for interacting with the Google Drive API, implementing the StorageClient interface.
@@ -92,7 +97,12 @@ class GoogleDriveClient(StorageClient):
         Finds a file's ID by its name in a specific folder.
         """
         try:
-            query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
+            escaped_filename = _escape_drive_query_value(filename)
+            escaped_folder_id = _escape_drive_query_value(folder_id)
+            query = (
+                f"name='{escaped_filename}' and "
+                f"'{escaped_folder_id}' in parents and trashed=false"
+            )
             response = (
                 self.service.files().list(q=query, fields="files(id, name)").execute()
             )
@@ -115,7 +125,7 @@ class GoogleDriveClient(StorageClient):
                 response = (
                     self.service.files()
                     .list(
-                        q=f"'{folder_id}' in parents and trashed=false",
+                        q=f"'{_escape_drive_query_value(folder_id)}' in parents and trashed=false",
                         fields="nextPageToken, files(id, name, mimeType)",
                         pageToken=page_token,
                     )

@@ -3,7 +3,11 @@ import pytest
 from unittest.mock import patch, MagicMock, ANY
 import json
 
-from src.gdrive import GoogleDriveClient, _extract_google_client_config
+from src.gdrive import (
+    GoogleDriveClient,
+    _escape_drive_query_value,
+    _extract_google_client_config,
+)
 from src.exceptions import PermanentError
 
 
@@ -81,6 +85,11 @@ def test_extract_google_client_config_missing_config():
         _extract_google_client_config({"installed": {"client_id": "missing_secret"}})
         is None
     )
+
+
+def test_escape_drive_query_value_escapes_quotes_and_backslashes():
+    """Google Drive query literals require backslash escaping."""
+    assert _escape_drive_query_value(r"Bob's \ notes") == r"Bob\'s \\ notes"
 
 
 @patch("src.gdrive.build")
@@ -244,6 +253,25 @@ def test_list_files_with_pagination_and_folder_filtering(client):
     )
 
 
+def test_list_files_escapes_folder_id_in_query(client):
+    """Folder IDs with query metacharacters should not break Drive search syntax."""
+    client.service.files().get().execute.return_value = {
+        "id": "folder_id",
+        "name": "Test Folder",
+        "mimeType": "application/vnd.google-apps.folder",
+    }
+    client.service.files().list().execute.return_value = {"files": []}
+    client.service.files().list.reset_mock()
+
+    client.list_files(r"folder'id\part")
+
+    client.service.files().list.assert_called_once_with(
+        q=r"'folder\'id\\part' in parents and trashed=false",
+        fields="nextPageToken, files(id, name, mimeType)",
+        pageToken=None,
+    )
+
+
 @patch("src.gdrive.MediaIoBaseDownload")
 @patch("src.gdrive.io.FileIO")
 def test_download_file_success(MockFileIO, MockMediaIoBaseDownload, client):
@@ -296,6 +324,22 @@ def test_file_exists_missing(client):
     exists = client.file_exists("folder_id", "recognized_test.pdf")
 
     assert exists is False
+
+
+def test_find_file_id_by_name_escapes_filename_and_folder_id(client):
+    """File lookup should escape names before interpolating Drive query strings."""
+    client.service.files().list().execute.return_value = {
+        "files": [{"id": "existing_file_id", "name": "recognized"}]
+    }
+    client.service.files().list.reset_mock()
+
+    file_id = client._find_file_id_by_name(r"Bob's \ note.pdf", r"folder'id\part")
+
+    assert file_id == "existing_file_id"
+    client.service.files().list.assert_called_once_with(
+        q=r"name='Bob\'s \\ note.pdf' and 'folder\'id\\part' in parents and trashed=false",
+        fields="files(id, name)",
+    )
 
 
 def test_delete_file_success(client):

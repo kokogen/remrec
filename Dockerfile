@@ -4,8 +4,8 @@
 # In this stage, we install all dependencies, including system ones.
 FROM python:3.11-slim AS builder
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Install system dependencies required for building
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -21,17 +21,18 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Copy the runtime application files
 WORKDIR /app
-COPY . .
+COPY src ./src
+COPY DejaVuSans.ttf .
 
 
 # --- Stage 2: Final Image ---
 # This image will be as lightweight and secure as possible.
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Install only the system dependencies needed for *running* the application
 RUN apt-get update && apt-get install -y --no-install-recommends \
