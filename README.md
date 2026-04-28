@@ -187,13 +187,17 @@ To run the complete test suite, execute the following command from the project r
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q
-ruff check .
-ruff format --check .
+make verify
 ```
 
 To run the local one-shot E2E workflow against the configured storage provider:
 
 ```bash
-./e2e-local.sh
+make e2e
+```
+
+For the full local release gate, run:
+
+```bash
+make release-check
 ```
