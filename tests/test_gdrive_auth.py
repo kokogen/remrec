@@ -1,6 +1,6 @@
 # tests/test_gdrive_auth.py
 from unittest.mock import patch, MagicMock, mock_open, call
-from src.gdrive_auth import gdrive_authenticate
+from src.gdrive_auth import gdrive_authenticate, main
 
 
 @patch("src.gdrive_auth.os.path.exists")
@@ -47,3 +47,11 @@ def test_gdrive_authenticate_existing_token(mock_creds_from_info, mock_exists):
     with patch("builtins.open", mock_open(read_data="{}")):
         gdrive_authenticate()
         mock_creds.refresh.assert_not_called()
+
+
+@patch("src.gdrive_auth.gdrive_authenticate")
+def test_gdrive_auth_main_calls_authenticate(mock_gdrive_authenticate):
+    """Ensures the module CLI entrypoint starts the auth flow."""
+    main()
+
+    mock_gdrive_authenticate.assert_called_once_with()

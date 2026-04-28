@@ -100,9 +100,9 @@ def initialize_storage_client(
 
     if settings.STORAGE_PROVIDER == "dropbox":
         logging.info("Using Dropbox storage provider.")
-        source_path = settings.DROPBOX_SOURCE_DIR
-        dest_path = settings.DROPBOX_DEST_DIR
-        failed_path = settings.DROPBOX_FAILED_DIR
+        source_path = settings.SRC_FOLDER
+        dest_path = settings.DST_FOLDER
+        failed_path = settings.FAILED_FOLDER
         try:
             storage_client = DropboxClient(
                 app_key=settings.DROPBOX_APP_KEY,
@@ -124,9 +124,9 @@ def initialize_storage_client(
 
     elif settings.STORAGE_PROVIDER == "gdrive":
         logging.info("Using Google Drive storage provider.")
-        source_path = settings.GDRIVE_SOURCE_FOLDER_ID
-        dest_path = settings.GDRIVE_DEST_FOLDER_ID
-        failed_path = settings.GDRIVE_FAILED_FOLDER_ID
+        source_path = settings.SRC_FOLDER
+        dest_path = settings.DST_FOLDER
+        failed_path = settings.FAILED_FOLDER
         storage_client = _init_gdrive_client(settings)
 
     else:
