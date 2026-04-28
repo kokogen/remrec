@@ -67,42 +67,35 @@ the outcome.
 - Pushing a `vX.Y.Z` tag triggers GitHub Actions to run CI and build/push the
   Docker image.
 
+## Common Commands
+
+- `make test`: run `pytest -q`.
+- `make lint`: run `ruff check .`.
+- `make format-check`: run `ruff format --check .`.
+- `make verify`: run unit tests, lint, and format check.
+- `make shell-check`: validate shell script syntax.
+- `make compose-config`: validate Docker Compose config.
+- `make e2e`: run local live E2E with a Docker rebuild.
+- `make release-check`: run the full local release gate.
+
+## Quick References
+
+- Detailed architecture: `docs/architecture.md`.
+- Release and doc-only cycles: `docs/release.md`.
+- Local quirks: `.dropbox.token` must be a file, E2E may pass with an empty
+  source folder, and rare transient Docker BuildKit cache errors can be retried.
+
 ## Full Development Cycle
 
-Current agreed process for implementation requests that should be completed end to end:
-
-1. Check the current branch and worktree state with `git status --short --branch`.
-2. Create a feature branch from `master`; do not implement directly on `master`.
-3. Make the requested code, test, documentation, and configuration changes.
-4. Keep the change scoped to the accepted recommendation; avoid unrelated refactors.
-5. Run local verification:
-   - `pytest -q`
-   - `ruff check .`
-   - `ruff format --check .`
-6. Run one local E2E pass as the final local test gate:
-   - `./e2e-local.sh`
-   - Use the default build behavior so the Docker image is rebuilt from the current working tree.
-   - A successful empty-source run is valid if the configured storage provider has no files to process.
-7. If any verification step fails, stop the release sequence, fix the problem, and rerun the relevant checks.
-8. Commit the feature branch with a concise descriptive message.
-9. Merge the feature branch into `master` with a merge commit.
-10. Assign the next version tag after the latest `vX.Y.Z` tag.
-11. Push `master` and the new tag to GitHub in the same release step.
-12. Report the commit, merge commit, tag, push result, and completed checks.
-
-GitHub Actions are triggered by pushing a version tag. After push, the remote workflow is expected to run the CI test job and Docker build/push job.
+- For code, tests, dependencies, Docker, scripts, configuration, or mixed changes:
+  create a feature branch from `master`, make scoped changes, run
+  `make release-check`, commit, merge to `master` with a merge commit, tag the
+  next `vX.Y.Z`, and push `master` plus the tag.
+- For documentation-only changes, use the short cycle in `docs/release.md`:
+  branch, edit, skip local verification by policy, commit, merge, tag, push, and
+  report that checks were intentionally skipped.
+- GitHub Actions are triggered by pushing a version tag.
 
 ## Documentation-Only Cycle
 
-If the change is limited to documentation files (`*.md`, comments, or agent notes)
-and does not modify code, tests, dependencies, Docker, scripts, or configuration,
-use the short release cycle:
-
-1. Check branch and worktree state.
-2. Create a feature branch from `master`.
-3. Make the documentation-only change.
-4. Skip local test, lint, format, and E2E gates.
-5. Commit, merge into `master` with a merge commit, tag the next `vX.Y.Z`, and push
-   `master` plus the tag.
-6. Report that the change was documentation-only and verification was intentionally
-   skipped by policy.
+See `docs/release.md`; do not duplicate the detailed checklist here.
